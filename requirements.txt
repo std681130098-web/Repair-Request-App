@@ -1,0 +1,2 @@
+# ระบบแจ้งซ่อมออนไลน์ — Python dependencies
+Django==6.0.7
