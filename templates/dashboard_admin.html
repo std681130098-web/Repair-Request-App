@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}หน้าหลัก · ผู้ดูแลระบบ{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h3 class="fw-bold mb-1">แดชบอร์ดผู้ดูแลระบบ</h3>
+    <div class="text-muted">ภาพรวมงานซ่อมทั้งหมดในระบบ</div>
+  </div>
+  <a href="{% url 'report' %}" class="btn btn-outline-primary"><i class="bi bi-bar-chart"></i> ดูรายงานสรุป</a>
+</div>
+
+<div class="row g-3 mb-4">
+  {% include "partials/stat.html" with icon="hourglass-split" color="secondary" num=stats.pending label="รอตรวจสอบ" %}
+  {% include "partials/stat.html" with icon="wrench-adjustable" color="primary" num=stats.in_progress label="กำลังซ่อม" %}
+  {% include "partials/stat.html" with icon="clipboard-check" color="warning" num=stats.review label="รอตรวจรับ" %}
+  {% include "partials/stat.html" with icon="check-circle" color="success" num=stats.done label="เสร็จสมบูรณ์" %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card card-clean h-100">
+      <div class="card-body">
+        <h5 class="fw-bold mb-3"><i class="bi bi-bell text-warning"></i> รายการที่ต้องดำเนินการ</h5>
+        {% if todo %}
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>#</th><th>หัวข้อ</th><th>ผู้แจ้ง</th><th>สถานะ</th><th></th></tr></thead>
+            <tbody>
+              {% for r in todo %}
+              <tr>
+                <td class="fw-semibold">#{{ r.pk }}</td>
+                <td>{{ r.title }}</td>
+                <td class="text-muted small">{{ r.reporter.display_name }}</td>
+                <td><span class="badge bg-{{ r.status_style }}">{{ r.get_status_display }}</span></td>
+                <td class="text-end">
+                  <a href="{{ r.get_absolute_url }}" class="btn btn-sm btn-primary">
+                    {% if r.status == 'pending' %}ตรวจสอบ{% else %}ตรวจรับ{% endif %}
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty"><i class="bi bi-check2-circle d-block"></i>ไม่มีรายการค้าง เยี่ยมมาก!</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card card-clean mb-3">
+      <div class="card-body text-center">
+        <div class="text-muted mb-1">คะแนนความพึงพอใจเฉลี่ย</div>
+        <div class="display-6 fw-bold text-warning">
+          {% if avg_rating %}{{ avg_rating|floatformat:1 }}{% else %}—{% endif %}
+          <i class="bi bi-star-fill fs-4"></i>
+        </div>
+      </div>
+    </div>
+    <div class="card card-clean">
+      <div class="card-body text-center">
+        <div class="text-muted mb-1">ใบแจ้งซ่อมทั้งหมด</div>
+        <div class="display-6 fw-bold text-primary">{{ stats.total }}</div>
+        <a href="{% url 'request_list' %}" class="small">ดูทั้งหมด</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

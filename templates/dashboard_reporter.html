@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}หน้าหลัก · ผู้แจ้งซ่อม{% endblock %}
+{% block content %}
+<div class="hero p-4 p-md-5 mb-4">
+  <div class="row align-items-center">
+    <div class="col-md-8">
+      <h3 class="fw-bold mb-2">สวัสดี, {{ user.display_name }} 👋</h3>
+      <p class="mb-3 opacity-75">แจ้งปัญหาการซ่อมและติดตามสถานะงานของคุณได้ที่นี่</p>
+      <a href="{% url 'request_create' %}" class="btn btn-light"><i class="bi bi-plus-circle"></i> แจ้งซ่อมใหม่</a>
+      <a href="{% url 'request_list' %}" class="btn btn-outline-light ms-2"><i class="bi bi-list-check"></i> ดูใบแจ้งซ่อมของฉัน</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  {% include "partials/stat.html" with icon="hourglass-split" color="primary" num=stats.open label="กำลังดำเนินการ" %}
+  {% include "partials/stat.html" with icon="arrow-counterclockwise" color="danger" num=stats.returned label="ถูกตีกลับ" %}
+  {% include "partials/stat.html" with icon="check-circle" color="success" num=stats.done label="เสร็จสมบูรณ์" %}
+  {% include "partials/stat.html" with icon="collection" color="secondary" num=stats.total label="ทั้งหมด" %}
+</div>
+
+<div class="card card-clean">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-clock-history text-primary"></i> ใบแจ้งซ่อมล่าสุด</h5>
+      <a href="{% url 'request_list' %}" class="small">ดูทั้งหมด</a>
+    </div>
+    {% if recent %}
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>#</th><th>หัวข้อ</th><th>ประเภท</th><th>สถานะ</th><th>วันที่แจ้ง</th></tr></thead>
+        <tbody>
+          {% for r in recent %}
+          <tr>
+            <td class="fw-semibold">#{{ r.pk }}</td>
+            <td><a href="{{ r.get_absolute_url }}">{{ r.title }}</a></td>
+            <td><span class="badge badge-soft">{{ r.category.name }}</span></td>
+            <td><span class="badge bg-{{ r.status_style }}">{{ r.get_status_display }}</span></td>
+            <td class="text-muted small">{{ r.created_at|date:"j M Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty"><i class="bi bi-inbox d-block"></i>ยังไม่มีใบแจ้งซ่อม — เริ่ม<a href="{% url 'request_create' %}">แจ้งซ่อมใหม่</a>ได้เลย</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

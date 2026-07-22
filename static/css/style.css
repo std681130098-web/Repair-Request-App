@@ -1,0 +1,52 @@
+:root{
+  --brand:#1f4e79;        /* navy */
+  --brand-2:#2f6fb0;
+  --brand-soft:#eaf1f8;
+  --ink:#1f2b3a;
+  --muted:#66788e;
+  --line:#e3e9f0;
+  --bg:#f4f7fb;
+}
+*{font-family:"Sarabun","Leelawadee UI","Tahoma",sans-serif;}
+body{background:var(--bg);color:var(--ink);}
+
+/* ---- navbar ---- */
+.navbar-brand{font-weight:700;letter-spacing:.2px;}
+.navbar.brandbar{background:linear-gradient(90deg,var(--brand),var(--brand-2));}
+.navbar.brandbar .nav-link{color:#dbe7f3 !important;border-radius:8px;padding:.35rem .7rem;}
+.navbar.brandbar .nav-link:hover,.navbar.brandbar .nav-link.active{color:#fff !important;background:rgba(255,255,255,.14);}
+
+/* ---- cards ---- */
+.card{border:1px solid var(--line);border-radius:14px;}
+.card-clean{box-shadow:0 6px 20px rgba(31,78,121,.06);}
+.stat-card{border-radius:14px;border:1px solid var(--line);background:#fff;}
+.stat-card .num{font-size:2rem;font-weight:800;line-height:1;}
+.stat-card .lbl{color:var(--muted);font-size:.9rem;}
+.stat-ico{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:1.3rem;}
+
+/* ---- hero ---- */
+.hero{background:linear-gradient(120deg,var(--brand),var(--brand-2));color:#fff;border-radius:18px;}
+.hero .btn-light{font-weight:600;}
+
+/* ---- badges & pills ---- */
+.badge-soft{background:var(--brand-soft);color:var(--brand);font-weight:600;}
+.status-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.35rem;}
+
+/* ---- timeline ---- */
+.timeline{list-style:none;padding-left:0;margin:0;}
+.timeline li{position:relative;padding-left:1.6rem;padding-bottom:1rem;border-left:2px solid var(--line);margin-left:.4rem;}
+.timeline li:last-child{border-left-color:transparent;padding-bottom:0;}
+.timeline li::before{content:"";position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--brand-2);}
+.timeline li.done::before{background:#198754;}
+.timeline li.muted::before{background:#c3ccd6;}
+.timeline .t-time{color:var(--muted);font-size:.82rem;}
+
+/* ---- misc ---- */
+.auth-wrap{max-width:430px;margin:5vh auto;}
+.brand-chip{width:54px;height:54px;border-radius:14px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:1.6rem;}
+.table thead th{color:var(--muted);font-weight:600;font-size:.85rem;text-transform:none;}
+a{text-decoration:none;}
+.star-rate label{font-size:1.4rem;cursor:pointer;color:#ffc107;margin:0 .1rem;}
+footer.app-foot{color:var(--muted);font-size:.85rem;padding:2rem 0;}
+.empty{color:var(--muted);text-align:center;padding:2.5rem 1rem;}
+.empty i{font-size:2.4rem;opacity:.5;}

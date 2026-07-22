@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}สมัครสมาชิก · ระบบแจ้งซ่อม{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="text-center mb-4">
+    <div class="brand-chip mx-auto mb-3"><i class="bi bi-person-plus"></i></div>
+    <h4 class="fw-bold mb-1">สมัครสมาชิก</h4>
+    <div class="text-muted">สำหรับผู้แจ้งซ่อม</div>
+  </div>
+  <div class="card card-clean">
+    <div class="card-body p-4">
+      <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text small">{{ field.help_text|safe }}</div>{% endif %}
+            {% for e in field.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary btn-lg w-100">
+          <i class="bi bi-check-circle"></i> สมัครสมาชิก
+        </button>
+      </form>
+    </div>
+  </div>
+  <p class="text-center mt-3 text-muted">มีบัญชีแล้ว? <a href="{% url 'login' %}">เข้าสู่ระบบ</a></p>
+</div>
+{% endblock %}

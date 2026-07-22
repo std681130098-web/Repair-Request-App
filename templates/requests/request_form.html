@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'create' %}แจ้งซ่อมใหม่{% else %}แก้ไขใบแจ้งซ่อม{% endif %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <a href="{% url 'request_list' %}" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i></a>
+      <h4 class="fw-bold mb-0">{% if mode == 'create' %}แจ้งซ่อมใหม่{% else %}แก้ไขใบแจ้งซ่อม #{{ req.pk }}{% endif %}</h4>
+    </div>
+
+    {% if mode == 'edit' and req.admin_note %}
+    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i>
+      <strong>เหตุผลที่ถูกตีกลับ:</strong> {{ req.admin_note }}
+    </div>
+    {% endif %}
+
+    <div class="card card-clean">
+      <div class="card-body p-4">
+        <form method="post">
+          {% csrf_token %}
+          {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ field.label }}</label>
+            {{ field }}
+            {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+          {% endfor %}
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-send"></i> {% if mode == 'create' %}ส่งใบแจ้งซ่อม{% else %}บันทึกและส่งใหม่{% endif %}
+            </button>
+            <a href="{% if mode == 'edit' %}{{ req.get_absolute_url }}{% else %}{% url 'request_list' %}{% endif %}" class="btn btn-light">ยกเลิก</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

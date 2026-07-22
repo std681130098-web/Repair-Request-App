@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}หน้าหลัก · ช่างซ่อม{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h3 class="fw-bold mb-1">งานซ่อมของฉัน</h3>
+  <div class="text-muted">สวัสดี {{ user.display_name }} — นี่คืองานที่ได้รับมอบหมาย</div>
+</div>
+
+<div class="row g-3 mb-4">
+  {% include "partials/stat.html" with icon="inbox" color="info" num=stats.assigned label="งานใหม่ (รอรับ)" %}
+  {% include "partials/stat.html" with icon="wrench-adjustable" color="primary" num=stats.in_progress label="กำลังซ่อม" %}
+  {% include "partials/stat.html" with icon="clipboard-check" color="warning" num=stats.review label="รอตรวจรับ" %}
+  {% include "partials/stat.html" with icon="check-circle" color="success" num=stats.done label="เสร็จแล้ว" %}
+</div>
+
+<div class="card card-clean">
+  <div class="card-body">
+    <h5 class="fw-bold mb-3"><i class="bi bi-list-task text-primary"></i> งานที่ต้องทำ</h5>
+    {% if todo %}
+    <div class="row g-3">
+      {% for r in todo %}
+      <div class="col-md-6">
+        <div class="border rounded-3 p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="badge bg-{{ r.status_style }}">{{ r.get_status_display }}</span>
+            <span class="text-muted small">#{{ r.pk }}</span>
+          </div>
+          <h6 class="fw-bold mb-1">{{ r.title }}</h6>
+          <div class="text-muted small mb-2">
+            <i class="bi bi-tag"></i> {{ r.category.name }}
+            {% if r.location %}· <i class="bi bi-geo-alt"></i> {{ r.location }}{% endif %}
+          </div>
+          <a href="{{ r.get_absolute_url }}" class="btn btn-sm btn-outline-primary w-100">เปิดงาน</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty"><i class="bi bi-cup-hot d-block"></i>ยังไม่มีงานที่ต้องทำ พักได้เลย</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

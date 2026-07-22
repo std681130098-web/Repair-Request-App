@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}รายงานสรุป{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h3 class="fw-bold mb-1">รายงานสรุประบบแจ้งซ่อม</h3>
+  <div class="text-muted">ภาพรวมสถิติงานซ่อมทั้งหมด {{ total }} รายการ</div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card card-clean h-100">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart text-primary"></i> จำนวนตามสถานะ</h6>
+        {% for row in status_rows %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between small mb-1">
+            <span><span class="badge bg-{{ row.style }}">{{ row.label }}</span></span>
+            <span class="fw-semibold">{{ row.n }}</span>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-{{ row.style }}" style="width: {% widthratio row.n total 100 %}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card card-clean mb-3">
+      <div class="card-body text-center">
+        <div class="text-muted mb-1">คะแนนความพึงพอใจเฉลี่ย</div>
+        <div class="display-5 fw-bold text-warning">
+          {% if avg_rating %}{{ avg_rating|floatformat:2 }} <i class="bi bi-star-fill fs-4"></i>{% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="card card-clean">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-tags text-primary"></i> จำนวนตามประเภทงาน</h6>
+        {% for c in by_category %}
+        <div class="d-flex justify-content-between border-bottom py-2">
+          <span>{{ c.category__name }}</span><span class="badge badge-soft">{{ c.n }}</span>
+        </div>
+        {% empty %}<div class="text-muted small">ยังไม่มีข้อมูล</div>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card card-clean">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-people text-primary"></i> ภาระงานของช่าง</h6>
+        {% if by_tech %}
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead><tr><th>ช่าง</th><th class="text-center">งานทั้งหมด</th><th class="text-center">เสร็จสมบูรณ์</th></tr></thead>
+            <tbody>
+              {% for t in by_tech %}
+              <tr>
+                <td>{{ t.technician__first_name|default:t.technician__username }}</td>
+                <td class="text-center"><span class="badge badge-soft">{{ t.n }}</span></td>
+                <td class="text-center"><span class="badge bg-success">{{ t.done }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}<div class="text-muted small">ยังไม่มีการมอบหมายงาน</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}ใบแจ้งซ่อม{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="fw-bold mb-0">
+    {% if user.is_reporter %}ใบแจ้งซ่อมของฉัน{% elif user.is_technician %}งานของฉัน{% else %}ใบแจ้งซ่อมทั้งหมด{% endif %}
+  </h4>
+  {% if user.is_reporter %}
+  <a href="{% url 'request_create' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> แจ้งซ่อมใหม่</a>
+  {% endif %}
+</div>
+
+<form class="card card-clean mb-3" method="get">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label small text-muted mb-1">ค้นหา</label>
+        <input type="text" name="q" value="{{ keyword }}" class="form-control" placeholder="หัวข้อ / รายละเอียด / สถานที่">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">สถานะ</label>
+        <select name="status" class="form-select">
+          <option value="">— ทุกสถานะ —</option>
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if val == cur_status %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-outline-primary"><i class="bi bi-search"></i> ค้นหา</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card card-clean">
+  <div class="card-body">
+    {% if requests %}
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>#</th><th>หัวข้อ</th><th>ประเภท</th>
+            {% if not user.is_reporter %}<th>ผู้แจ้ง</th>{% endif %}
+            {% if user.is_admin_role %}<th>ช่าง</th>{% endif %}
+            <th>สถานะ</th><th>วันที่แจ้ง</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
+          <tr>
+            <td class="fw-semibold">#{{ r.pk }}</td>
+            <td><a href="{{ r.get_absolute_url }}">{{ r.title }}</a>
+              {% if r.location %}<div class="text-muted small"><i class="bi bi-geo-alt"></i> {{ r.location }}</div>{% endif %}
+            </td>
+            <td><span class="badge badge-soft">{{ r.category.name }}</span></td>
+            {% if not user.is_reporter %}<td class="text-muted small">{{ r.reporter.display_name }}</td>{% endif %}
+            {% if user.is_admin_role %}<td class="text-muted small">{{ r.technician.display_name|default:"—" }}</td>{% endif %}
+            <td><span class="badge bg-{{ r.status_style }}">{{ r.get_status_display }}</span></td>
+            <td class="text-muted small">{{ r.created_at|date:"j M Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty"><i class="bi bi-search d-block"></i>ไม่พบใบแจ้งซ่อมที่ตรงเงื่อนไข</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

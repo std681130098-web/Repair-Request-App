@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}เข้าสู่ระบบ · ระบบแจ้งซ่อม{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="text-center mb-4">
+    <div class="brand-chip mx-auto mb-3"><i class="bi bi-tools"></i></div>
+    <h4 class="fw-bold mb-1">ระบบแจ้งซ่อมออนไลน์</h4>
+    <div class="text-muted">เข้าสู่ระบบเพื่อใช้งาน</div>
+  </div>
+  <div class="card card-clean">
+    <div class="card-body p-4">
+      {% if form.errors %}
+        <div class="alert alert-danger py-2">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">ชื่อผู้ใช้</label>
+          <input type="text" name="username" class="form-control form-control-lg" autofocus required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">รหัสผ่าน</label>
+          <input type="password" name="password" class="form-control form-control-lg" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg w-100">
+          <i class="bi bi-box-arrow-in-right"></i> เข้าสู่ระบบ
+        </button>
+      </form>
+    </div>
+  </div>
+  <p class="text-center mt-3 text-muted">
+    ยังไม่มีบัญชี? <a href="{% url 'signup' %}">สมัครสมาชิก (ผู้แจ้งซ่อม)</a>
+  </p>
+</div>
+{% endblock %}
