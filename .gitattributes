@@ -1,0 +1,23 @@
+# ป้องกันไฟล์ binary (โดยเฉพาะ font) ถูกแปลง line-ending จนไฟล์เสีย
+# เมื่อ clone/checkout ข้ามเครื่อง Windows/macOS/Linux
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.eot    binary
+*.otf    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.sqlite3 binary
+
+# ไฟล์ข้อความให้ normalize เป็น LF ในรีโป (เครื่อง Windows checkout เป็น CRLF ได้ตามปกติ)
+*.py     text
+*.html   text
+*.css    text
+*.js     text
+*.md     text
+*.yml    text
+*.txt    text
