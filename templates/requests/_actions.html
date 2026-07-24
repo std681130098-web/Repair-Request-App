@@ -74,12 +74,17 @@
         <div class="mb-3">{{ assign_form.note.label_tag }} {{ assign_form.note }}</div>
         <button class="btn btn-primary w-100"><i class="bi bi-send"></i> อนุมัติและมอบหมาย</button>
       </form>
+      {% if req.status == 'pending' %}
+      {# ตีกลับได้เฉพาะใบที่ยังรอตรวจสอบ — ใบที่ตีกลับไปแล้วกำลังรอผู้แจ้งแก้ไข #}
       <hr>
       <form method="post" action="{% url 'request_return' req.pk %}">
         {% csrf_token %}
         <div class="mb-2">{{ return_form.reason }}</div>
         <button class="btn btn-outline-danger w-100"><i class="bi bi-arrow-counterclockwise"></i> ตีกลับให้แก้ไข</button>
       </form>
+      {% else %}
+      <div class="text-muted small mt-3"><i class="bi bi-info-circle"></i> ใบนี้ถูกตีกลับให้ผู้แจ้งแก้ไขแล้ว — รอผู้แจ้งส่งกลับเข้ามาใหม่</div>
+      {% endif %}
     </div>
   </div>
   {% elif req.status == 'review' %}

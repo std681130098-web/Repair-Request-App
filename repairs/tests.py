@@ -177,6 +177,27 @@ class WorkflowTests(BaseData):
         self.assertEqual(r.status, S.PENDING)
         self.assertEqual(r.admin_note, "")
 
+    def test_return_on_already_returned_request_is_rejected(self):
+        # ใบที่ถูกตีกลับแล้ว ตีกลับซ้ำไม่ได้ (สถานะต้องไม่เปลี่ยน)
+        r = self.new_request(status=S.RETURNED)
+        self.client.force_login(self.admin)
+        self.client.post(reverse("request_return", args=[r.pk]),
+                         {"reason": "อีกรอบ"})
+        r.refresh_from_db()
+        self.assertEqual(r.status, S.RETURNED)  # unchanged, no dead-end transition
+
+    def test_detail_hides_return_button_for_returned_request(self):
+        # admin ไม่ควรเห็นปุ่ม "ตีกลับ" บนใบที่ตีกลับไปแล้ว แต่ยังมอบหมายได้
+        r = self.new_request(status=S.RETURNED)
+        self.client.force_login(self.admin)
+        resp = self.client.get(r.get_absolute_url())
+        self.assertContains(resp, reverse("request_assign", args=[r.pk]))
+        self.assertNotContains(resp, reverse("request_return", args=[r.pk]))
+        # ส่วนใบที่รอตรวจสอบยังต้องมีปุ่มตีกลับตามปกติ
+        pending = self.new_request(status=S.PENDING)
+        resp2 = self.client.get(pending.get_absolute_url())
+        self.assertContains(resp2, reverse("request_return", args=[pending.pk]))
+
     def test_review_return_goes_back_to_technician(self):
         r = self.new_request(status=S.REVIEW)
         Assignment.objects.create(request=r, technician=self.tech)

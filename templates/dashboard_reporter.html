@@ -13,7 +13,7 @@
 </div>
 
 <div class="row g-3 mb-4">
-  {% include "partials/stat.html" with icon="hourglass-split" color="primary" num=stats.open label="กำลังดำเนินการ" %}
+  {% include "partials/stat.html" with icon="hourglass-split" color="primary" num=stats.open label="ที่ยังไม่เสร็จ" %}
   {% include "partials/stat.html" with icon="arrow-counterclockwise" color="danger" num=stats.returned label="ถูกตีกลับ" %}
   {% include "partials/stat.html" with icon="check-circle" color="success" num=stats.done label="เสร็จสมบูรณ์" %}
   {% include "partials/stat.html" with icon="collection" color="secondary" num=stats.total label="ทั้งหมด" %}
