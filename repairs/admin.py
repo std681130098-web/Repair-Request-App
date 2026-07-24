@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Assignment, Category, Rating, RepairRequest, User
+from .models import Assignment, Category, Rating, RepairImage, RepairRequest, User
 
 
 @admin.register(User)
@@ -28,13 +28,18 @@ class AssignmentInline(admin.TabularInline):
     extra = 0
 
 
+class RepairImageInline(admin.TabularInline):
+    model = RepairImage
+    extra = 0
+
+
 @admin.register(RepairRequest)
 class RepairRequestAdmin(admin.ModelAdmin):
     list_display = ("id", "title", "reporter", "category", "status", "created_at")
     list_filter = ("status", "category")
     search_fields = ("title", "detail", "location")
     date_hierarchy = "created_at"
-    inlines = [AssignmentInline]
+    inlines = [RepairImageInline, AssignmentInline]
 
 
 @admin.register(Assignment)

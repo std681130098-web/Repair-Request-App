@@ -13,6 +13,7 @@ urlpatterns = [
     path("requests/<int:pk>/", views.request_detail, name="request_detail"),
     path("requests/<int:pk>/edit/", views.request_edit, name="request_edit"),
     path("requests/<int:pk>/cancel/", views.request_cancel, name="request_cancel"),
+    path("requests/<int:pk>/images/<int:image_id>/delete/", views.image_delete, name="image_delete"),
 
     # admin actions
     path("requests/<int:pk>/assign/", views.request_assign, name="request_assign"),

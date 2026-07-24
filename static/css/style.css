@@ -41,6 +41,10 @@ body{background:var(--bg);color:var(--ink);}
 .timeline li.muted::before{background:#c3ccd6;}
 .timeline .t-time{color:var(--muted);font-size:.82rem;}
 
+/* ---- repair images ---- */
+.repair-thumb{width:100%;height:120px;object-fit:cover;transition:transform .15s ease;}
+.repair-thumb:hover{transform:scale(1.03);}
+
 /* ---- misc ---- */
 .auth-wrap{max-width:430px;margin:5vh auto;}
 .brand-chip{width:54px;height:54px;border-radius:14px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:1.6rem;}

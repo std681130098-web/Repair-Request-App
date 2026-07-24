@@ -31,7 +31,7 @@ from .forms import (
     SignUpForm,
     WorkLogForm,
 )
-from .models import Assignment, RepairRequest, User
+from .models import Assignment, RepairImage, RepairRequest, User
 
 S = RepairRequest.Status
 
@@ -153,15 +153,22 @@ def request_list(request):
 # ---------------------------------------------------------------------------
 # Create / edit / cancel (reporter)
 # ---------------------------------------------------------------------------
+def _save_images(req, images):
+    """สร้าง RepairImage จากไฟล์รูปที่ผ่านการตรวจแล้ว."""
+    for image in images:
+        RepairImage.objects.create(request=req, image=image)
+
+
 @role_required("reporter")
 def request_create(request):
     if request.method == "POST":
-        form = RepairRequestForm(request.POST)
+        form = RepairRequestForm(request.POST, request.FILES)
         if form.is_valid():
             req = form.save(commit=False)
             req.reporter = request.user
             req.status = S.PENDING
             req.save()
+            _save_images(req, form.cleaned_data.get("images", []))
             messages.success(request, f"ส่งใบแจ้งซ่อม #{req.pk} เรียบร้อยแล้ว")
             return redirect(req.get_absolute_url())
     else:
@@ -176,13 +183,14 @@ def request_edit(request, pk):
         messages.error(request, "แก้ไขได้เฉพาะใบที่รอตรวจสอบหรือถูกตีกลับเท่านั้น")
         return redirect(req.get_absolute_url())
     if request.method == "POST":
-        form = RepairRequestForm(request.POST, instance=req)
+        form = RepairRequestForm(request.POST, request.FILES, instance=req)
         if form.is_valid():
             req = form.save(commit=False)
             was_returned = req.status == S.RETURNED
             req.status = S.PENDING  # แก้ไขแล้วส่งกลับเข้าคิวตรวจสอบ
             req.admin_note = "" if was_returned else req.admin_note
             req.save()
+            _save_images(req, form.cleaned_data.get("images", []))
             messages.success(request, "บันทึกการแก้ไขและส่งกลับให้ตรวจสอบแล้ว")
             return redirect(req.get_absolute_url())
     else:
@@ -190,6 +198,21 @@ def request_edit(request, pk):
     return render(
         request, "requests/request_form.html", {"form": form, "mode": "edit", "req": req}
     )
+
+
+@role_required("reporter")
+@require_POST
+def image_delete(request, pk, image_id):
+    """ผู้แจ้งลบรูปของตัวเอง — เฉพาะใบที่ยังแก้ไขได้ (รอตรวจสอบ/ถูกตีกลับ)."""
+    req = get_object_or_404(RepairRequest, pk=pk, reporter=request.user)
+    if req.status not in (S.PENDING, S.RETURNED):
+        messages.error(request, "ลบรูปได้เฉพาะใบที่ยังไม่ถูกดำเนินการเท่านั้น")
+        return redirect(req.get_absolute_url())
+    image = get_object_or_404(RepairImage, pk=image_id, request=req)
+    image.image.delete(save=False)  # ลบไฟล์ออกจากดิสก์
+    image.delete()
+    messages.info(request, "ลบรูปแล้ว")
+    return redirect(req.get_absolute_url())
 
 
 @role_required("reporter")
@@ -231,6 +254,12 @@ def request_detail(request, pk):
         "return_form": ReturnForm(),
         "worklog_form": WorkLogForm(instance=assignment),
         "rating_form": RatingForm(),
+        # ผู้แจ้ง (เจ้าของ) จัดการรูปได้เฉพาะตอนใบยังแก้ไขได้
+        "can_manage_images": (
+            user.is_reporter
+            and req.reporter_id == user.id
+            and req.status in (S.PENDING, S.RETURNED)
+        ),
     }
     return render(request, "requests/request_detail.html", ctx)
 

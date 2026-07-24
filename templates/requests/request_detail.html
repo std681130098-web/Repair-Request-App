@@ -28,6 +28,9 @@
       </div>
     </div>
 
+    {# รูปภาพประกอบ (ถ่ายจุดที่ต้องซ่อม) #}
+    {% include "requests/_images.html" %}
+
     {% if req.admin_note %}
     <div class="alert alert-{% if req.status == 'returned' %}danger{% else %}warning{% endif %}">
       <i class="bi bi-chat-left-text"></i> <strong>หมายเหตุจากผู้ดูแล:</strong> {{ req.admin_note }}

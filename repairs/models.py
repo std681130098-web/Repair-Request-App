@@ -193,6 +193,28 @@ class Assignment(models.Model):
         return f"งาน #{self.request_id} → {self.technician.display_name}"
 
 
+class RepairImage(models.Model):
+    """รูปภาพประกอบใบแจ้งซ่อม — ให้ผู้แจ้งถ่ายจุดที่ต้องซ่อม (แนบได้หลายรูป)."""
+
+    request = models.ForeignKey(
+        RepairRequest,
+        on_delete=models.CASCADE,
+        related_name="images",
+        verbose_name="ใบแจ้งซ่อม",
+    )
+    image = models.ImageField("รูปภาพ", upload_to="repairs/%Y/%m")
+    caption = models.CharField("คำอธิบายภาพ", max_length=200, blank=True)
+    uploaded_at = models.DateTimeField("วันที่อัปโหลด", default=timezone.now)
+
+    class Meta:
+        verbose_name = "รูปภาพแจ้งซ่อม"
+        verbose_name_plural = "รูปภาพแจ้งซ่อม"
+        ordering = ["uploaded_at"]
+
+    def __str__(self):
+        return f"รูปของงาน #{self.request_id}"
+
+
 class Rating(models.Model):
     """การประเมินความพึงพอใจ (1 ใบแจ้งซ่อม ประเมินได้ 1 ครั้ง)."""
 

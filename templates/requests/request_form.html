@@ -16,12 +16,13 @@
 
     <div class="card card-clean">
       <div class="card-body p-4">
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
           {% csrf_token %}
           {% for field in form %}
           <div class="mb-3">
             <label class="form-label fw-semibold">{{ field.label }}</label>
             {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
             {% for e in field.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
           </div>
           {% endfor %}
@@ -34,6 +35,13 @@
         </form>
       </div>
     </div>
+
+    {# ตอนแก้ไข: แสดงรูปที่แนบไว้แล้ว พร้อมปุ่มลบ #}
+    {% if mode == 'edit' %}
+    <div class="mt-3">
+      {% include "requests/_images.html" with can_manage_images=True %}
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

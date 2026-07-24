@@ -4,12 +4,26 @@ Automated tests for the repair-request system.
 Run:  python manage.py test
 Covers: models, role-based access control, and the full workflow state machine.
 """
-from django.test import TestCase
-from django.urls import reverse
+import shutil
+import tempfile
+from io import BytesIO
 
-from .models import Assignment, Category, Rating, RepairRequest, User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from PIL import Image
+
+from .models import Assignment, Category, Rating, RepairImage, RepairRequest, User
 
 S = RepairRequest.Status
+
+
+def make_image(name="test.png", size=(12, 12), color="red"):
+    """สร้างไฟล์รูปจริงในหน่วยความจำสำหรับทดสอบการอัปโหลด."""
+    buf = BytesIO()
+    Image.new("RGB", size, color).save(buf, "PNG")
+    buf.seek(0)
+    return SimpleUploadedFile(name, buf.read(), content_type="image/png")
 
 
 def make_user(username, role, **kw):
@@ -236,3 +250,80 @@ class WorkflowTests(BaseData):
         ids = {r.pk for r in resp.context["requests"]}
         self.assertIn(mine.pk, ids)
         self.assertNotIn(theirs.pk, ids)
+
+
+# --------------------------------------------------------------------------
+_TEST_MEDIA = tempfile.mkdtemp(prefix="repair_test_media_")
+
+
+@override_settings(MEDIA_ROOT=_TEST_MEDIA)
+class ImageUploadTests(BaseData):
+    """แนบรูป / แสดง / ลบ รูปภาพประกอบใบแจ้งซ่อม."""
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(_TEST_MEDIA, ignore_errors=True)
+        super().tearDownClass()
+
+    def test_create_with_images(self):
+        self.client.force_login(self.reporter)
+        resp = self.client.post(reverse("request_create"), {
+            "category": self.cat.pk, "title": "หลอดไฟเสีย", "detail": "x",
+            "location": "ห้อง 101",
+            "images": [make_image("a.png"), make_image("b.png")],
+        })
+        self.assertEqual(resp.status_code, 302)
+        req = RepairRequest.objects.get(title="หลอดไฟเสีย")
+        self.assertEqual(req.images.count(), 2)
+
+    def test_images_render_on_detail(self):
+        req = self.new_request()
+        RepairImage.objects.create(request=req, image=make_image("show.png"))
+        self.client.force_login(self.reporter)
+        resp = self.client.get(req.get_absolute_url())
+        self.assertContains(resp, "รูปภาพประกอบ")
+        self.assertContains(resp, "repairs/")  # media path of the uploaded file
+
+    def test_reporter_deletes_own_image_when_editable(self):
+        req = self.new_request(status=S.RETURNED)
+        img = RepairImage.objects.create(request=req, image=make_image("del.png"))
+        self.client.force_login(self.reporter)
+        resp = self.client.post(
+            reverse("image_delete", args=[req.pk, img.pk])
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(RepairImage.objects.filter(pk=img.pk).exists())
+
+    def test_cannot_delete_image_once_in_progress(self):
+        req = self.new_request(status=S.IN_PROGRESS)
+        img = RepairImage.objects.create(request=req, image=make_image("keep.png"))
+        self.client.force_login(self.reporter)
+        self.client.post(reverse("image_delete", args=[req.pk, img.pk]))
+        self.assertTrue(RepairImage.objects.filter(pk=img.pk).exists())
+
+    def test_other_reporter_cannot_delete_image(self):
+        req = self.new_request(reporter=self.reporter, status=S.PENDING)
+        img = RepairImage.objects.create(request=req, image=make_image("mine.png"))
+        self.client.force_login(self.other)  # different reporter
+        resp = self.client.post(reverse("image_delete", args=[req.pk, img.pk]))
+        self.assertEqual(resp.status_code, 404)
+        self.assertTrue(RepairImage.objects.filter(pk=img.pk).exists())
+
+    def test_non_image_file_is_rejected(self):
+        self.client.force_login(self.reporter)
+        bad = SimpleUploadedFile("evil.txt", b"not an image", content_type="text/plain")
+        self.client.post(reverse("request_create"), {
+            "category": self.cat.pk, "title": "ไฟล์แปลก", "detail": "x",
+            "location": "y", "images": [bad],
+        })
+        self.assertFalse(RepairRequest.objects.filter(title="ไฟล์แปลก").exists())
+        self.assertEqual(RepairImage.objects.count(), 0)
+
+    def test_too_many_images_rejected(self):
+        self.client.force_login(self.reporter)
+        imgs = [make_image(f"{i}.png") for i in range(6)]  # เกิน 5
+        self.client.post(reverse("request_create"), {
+            "category": self.cat.pk, "title": "รูปเยอะ", "detail": "x",
+            "location": "y", "images": imgs,
+        })
+        self.assertFalse(RepairRequest.objects.filter(title="รูปเยอะ").exists())
