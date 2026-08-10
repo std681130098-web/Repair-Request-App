@@ -1,8 +1,10 @@
 """Forms for the repair-request system (Bootstrap-styled)."""
+import os
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import Assignment, Rating, RepairRequest, User
+from .models import Assignment, Category, Comment, Rating, RepairRequest, User
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -38,6 +40,42 @@ class MultipleImageField(forms.ImageField):
         return cleaned
 
 
+class MultipleFileField(forms.FileField):
+    """FileField ที่รับได้หลายไฟล์ + จำกัดชนิด/จำนวน/ขนาด (สำหรับแนบในสนทนา)."""
+
+    MAX_FILES = 5
+    MAX_SIZE = 10 * 1024 * 1024  # 10 MB ต่อไฟล์
+    ALLOWED_EXT = {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp",   # รูป
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx",           # เอกสาร
+        ".ppt", ".pptx", ".txt", ".csv", ".zip",            # อื่น ๆ
+    }
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput(attrs={"multiple": True}))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_clean = super().clean
+        files = data if isinstance(data, (list, tuple)) else ([data] if data else [])
+        if len(files) > self.MAX_FILES:
+            raise forms.ValidationError(f"แนบไฟล์ได้สูงสุด {self.MAX_FILES} ไฟล์")
+        cleaned = []
+        for f in files:
+            file = single_clean(f, initial)
+            if not file:
+                continue
+            ext = os.path.splitext(file.name)[1].lower()
+            if ext not in self.ALLOWED_EXT:
+                raise forms.ValidationError(
+                    f"ไม่รองรับไฟล์ชนิด “{ext or '?'}” (รองรับรูปภาพ, PDF, Word, Excel, ฯลฯ)"
+                )
+            if file.size > self.MAX_SIZE:
+                raise forms.ValidationError("แต่ละไฟล์ต้องมีขนาดไม่เกิน 10 MB")
+            cleaned.append(file)
+        return cleaned
+
+
 class BootstrapMixin:
     """เติมคลาส Bootstrap ให้ทุก field อัตโนมัติ."""
 
@@ -63,12 +101,67 @@ class SignUpForm(BootstrapMixin, UserCreationForm):
         model = User
         fields = ("username", "first_name", "phone")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # แทนที่คำอธิบายภาษาอังกฤษของ Django ด้วยภาษาไทย
+        self.fields["username"].help_text = (
+            "จำเป็น ไม่เกิน 150 ตัวอักษร ใช้ได้เฉพาะตัวอักษร ตัวเลข "
+            "และ @/./+/-/_ เท่านั้น"
+        )
+        self.fields["password1"].help_text = (
+            "<ul class='mb-0 ps-3'>"
+            "<li>รหัสผ่านต้องไม่คล้ายกับข้อมูลส่วนตัวของคุณมากเกินไป</li>"
+            "<li>รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร</li>"
+            "<li>รหัสผ่านต้องไม่เป็นรหัสที่ใช้กันทั่วไป</li>"
+            "<li>รหัสผ่านต้องไม่เป็นตัวเลขล้วน</li>"
+            "</ul>"
+        )
+        self.fields["password2"].help_text = "กรอกรหัสผ่านเดิมอีกครั้งเพื่อยืนยัน"
+
     def save(self, commit=True):
         user = super().save(commit=False)
         user.role = User.Role.REPORTER
         if commit:
             user.save()
         return user
+
+
+class CategoryForm(BootstrapMixin, forms.ModelForm):
+    """เพิ่มประเภทงานซ่อมจากหน้าคอนโซลจัดการ."""
+
+    class Meta:
+        model = Category
+        fields = ("name",)
+        widgets = {
+            "name": forms.TextInput(attrs={"placeholder": "เช่น ไฟฟ้า, ประปา, คอมพิวเตอร์"}),
+        }
+
+
+class CommentForm(BootstrapMixin, forms.ModelForm):
+    """ส่งข้อความในเธรดสนทนาของใบแจ้งซ่อม — พร้อมแนบรูป/ไฟล์ได้."""
+
+    files = MultipleFileField(
+        label="แนบรูป/ไฟล์",
+        required=False,
+        help_text="รูปภาพ, PDF, Word, Excel ฯลฯ · สูงสุด 5 ไฟล์ ไฟล์ละ 10 MB",
+    )
+
+    class Meta:
+        model = Comment
+        fields = ("body", "is_internal")
+        widgets = {
+            "body": forms.Textarea(
+                attrs={"rows": 2, "placeholder": "พิมพ์ข้อความถึงทีมงาน…"}
+            ),
+        }
+        labels = {"is_internal": "หมายเหตุภายใน (ผู้แจ้งไม่เห็น)"}
+
+    def clean(self):
+        cleaned = super().clean()
+        body = (cleaned.get("body") or "").strip()
+        if not body and not cleaned.get("files"):
+            raise forms.ValidationError("กรุณาพิมพ์ข้อความ หรือแนบไฟล์อย่างน้อย 1 รายการ")
+        return cleaned
 
 
 class RepairRequestForm(BootstrapMixin, forms.ModelForm):
@@ -107,7 +200,13 @@ class AssignForm(BootstrapMixin, forms.Form):
 
 
 class WorkLogForm(BootstrapMixin, forms.ModelForm):
-    """ช่างบันทึกผลการซ่อม."""
+    """ช่างบันทึกผลการซ่อม + แนบรูปงานที่เสร็จแล้ว."""
+
+    images = MultipleImageField(
+        label="แนบรูปงานที่ซ่อมเสร็จ (ถ้ามี)",
+        required=False,
+        help_text="ถ่ายรูปหลังซ่อมเสร็จได้หลายรูป · รองรับ JPG/PNG · ไม่เกิน 5 รูป รูปละ 5 MB",
+    )
 
     class Meta:
         model = Assignment

@@ -1,13 +1,18 @@
 {% extends "base.html" %}
+{% load repair_extras %}
 {% block title %}หน้าหลัก · ผู้แจ้งซ่อม{% endblock %}
+{% block page_title %}หน้าหลัก{% endblock %}
+{% block page_sub %}ยินดีต้อนรับ {{ user.display_name }}{% endblock %}
 {% block content %}
-<div class="hero p-4 p-md-5 mb-4">
+
+<div class="hero p-4 p-md-5 mb-3">
   <div class="row align-items-center">
     <div class="col-md-8">
-      <h3 class="fw-bold mb-2">สวัสดี, {{ user.display_name }} 👋</h3>
-      <p class="mb-3 opacity-75">แจ้งปัญหาการซ่อมและติดตามสถานะงานของคุณได้ที่นี่</p>
-      <a href="{% url 'request_create' %}" class="btn btn-light"><i class="bi bi-plus-circle"></i> แจ้งซ่อมใหม่</a>
-      <a href="{% url 'request_list' %}" class="btn btn-outline-light ms-2"><i class="bi bi-list-check"></i> ดูใบแจ้งซ่อมของฉัน</a>
+      <div class="mb-1 fw-medium" style="color:var(--brand-ink)">สวัสดี, {{ user.display_name }} 👋</div>
+      <h3 class="fw-bold mb-2">มีอะไรเสียบ้างวันนี้?</h3>
+      <p class="mb-3" style="color:var(--ink-2);max-width:520px">แจ้งปัญหาการซ่อมและติดตามสถานะงานของคุณได้จากที่เดียว ทีมช่างจะรับเรื่องภายในวันทำการเดียวกัน</p>
+      <a href="{% url 'request_create' %}" class="btn btn-light"><i class="bi bi-plus-lg me-1"></i>แจ้งซ่อมใหม่</a>
+      <a href="{% url 'request_list' %}" class="btn btn-outline-light ms-2">ดูใบแจ้งซ่อมของฉัน</a>
     </div>
   </div>
 </div>
@@ -19,32 +24,34 @@
   {% include "partials/stat.html" with icon="collection" color="secondary" num=stats.total label="ทั้งหมด" %}
 </div>
 
-<div class="card card-clean">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="fw-bold mb-0"><i class="bi bi-clock-history text-primary"></i> ใบแจ้งซ่อมล่าสุด</h5>
-      <a href="{% url 'request_list' %}" class="small">ดูทั้งหมด</a>
-    </div>
-    {% if recent %}
-    <div class="table-responsive">
-      <table class="table align-middle">
-        <thead><tr><th>#</th><th>หัวข้อ</th><th>ประเภท</th><th>สถานะ</th><th>วันที่แจ้ง</th></tr></thead>
-        <tbody>
-          {% for r in recent %}
-          <tr>
-            <td class="fw-semibold">#{{ r.pk }}</td>
-            <td><a href="{{ r.get_absolute_url }}">{{ r.title }}</a></td>
-            <td><span class="badge badge-soft">{{ r.category.name }}</span></td>
-            <td><span class="badge bg-{{ r.status_style }}">{{ r.get_status_display }}</span></td>
-            <td class="text-muted small">{{ r.created_at|date:"j M Y" }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <div class="empty"><i class="bi bi-inbox d-block"></i>ยังไม่มีใบแจ้งซ่อม — เริ่ม<a href="{% url 'request_create' %}">แจ้งซ่อมใหม่</a>ได้เลย</div>
-    {% endif %}
-  </div>
+<div class="d-flex align-items-center gap-2 mb-3">
+  <div class="section-title">ใบแจ้งซ่อมล่าสุด</div>
+  <a href="{% url 'request_list' %}" class="ms-auto small fw-medium">ดูทั้งหมด <i class="bi bi-arrow-right"></i></a>
 </div>
+
+{% if recent %}
+<div class="d-flex flex-column gap-2">
+  {% for r in recent %}
+  <a href="{{ r.get_absolute_url }}" class="row-card">
+    <span class="cat-ico"><i class="bi {{ r.category.name|cat_icon }}"></i></span>
+    <span class="flex-grow-1 min-w-0" style="min-width:0">
+      <span class="d-block text-muted small" style="font-variant-numeric:tabular-nums">RQ-{{ r.pk }}</span>
+      <span class="d-block fw-medium text-truncate">{{ r.title }}</span>
+      <span class="d-block text-muted small text-truncate">
+        <i class="bi bi-geo-alt me-1"></i>{{ r.location|default:"ไม่ระบุสถานที่" }} · {{ r.category.name }}
+      </span>
+    </span>
+    <span class="text-end flex-shrink-0">
+      <span class="pill pill-{{ r.status }}">{{ r.get_status_display }}</span>
+      <span class="d-block text-muted small mt-1">{{ r.created_at|date:"j M" }}</span>
+    </span>
+    <i class="bi bi-chevron-right text-muted small"></i>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card card-clean"><div class="card-body">
+  <div class="empty"><i class="bi bi-inbox d-block"></i>ยังไม่มีใบแจ้งซ่อม — เริ่ม <a href="{% url 'request_create' %}">แจ้งซ่อมใหม่</a> ได้เลย</div>
+</div></div>
+{% endif %}
 {% endblock %}

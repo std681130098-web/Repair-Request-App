@@ -1,0 +1,1 @@
+เปิด CMD ในโฟร์เดอร์ที่โหลดตัวอย่าง "C:\Users\user\repair-system" แล้วใช้คำสั่ง python manage.py runserver แล้วเอาตัวเลขชุดนี้ไปใส่ใน google 127.0.0.1:8000

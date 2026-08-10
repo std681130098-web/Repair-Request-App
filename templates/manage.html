@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}จัดการระบบ · ผู้ดูแล{% endblock %}
+{% block page_title %}คิวงาน &amp; ช่าง{% endblock %}
+{% block page_sub %}คอนโซลจัดการของผู้ดูแล{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-sliders text-primary"></i> คอนโซลจัดการระบบ</h3>
+    <div class="text-muted">ศูนย์รวมงานของผู้ดูแล — คิวงาน ภาระช่าง และข้อมูลพื้นฐาน</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'report' %}" class="btn btn-outline-primary"><i class="bi bi-bar-chart"></i> รายงานสรุป</a>
+    {% if user.is_staff %}
+    <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary"><i class="bi bi-gear"></i> Django Admin</a>
+    {% endif %}
+  </div>
+</div>
+
+{# ---------- KPI ---------- #}
+<div class="row g-3 mb-3">
+  {% include "partials/stat.html" with icon="hourglass-split" color="secondary" num=stats.pending label="รอตรวจสอบ" %}
+  {% include "partials/stat.html" with icon="wrench-adjustable" color="primary" num=stats.in_progress label="กำลังซ่อม" %}
+  {% include "partials/stat.html" with icon="clipboard-check" color="warning" num=stats.review label="รอตรวจรับ" %}
+  {% include "partials/stat.html" with icon="check-circle" color="success" num=stats.done label="เสร็จสมบูรณ์" %}
+</div>
+
+{# ---------- summary strip ---------- #}
+<div class="card card-clean mb-4">
+  <div class="card-body py-3">
+    <div class="row text-center g-2">
+      <div class="col"><div class="fw-bold fs-5">{{ stats.total }}</div><div class="text-muted small">ใบแจ้งซ่อมทั้งหมด</div></div>
+      <div class="col border-start"><div class="fw-bold fs-5 text-info">{{ stats.assigned }}</div><div class="text-muted small">มอบหมายแล้ว</div></div>
+      <div class="col border-start"><div class="fw-bold fs-5 text-danger">{{ stats.returned }}</div><div class="text-muted small">ตีกลับ</div></div>
+      <div class="col border-start"><div class="fw-bold fs-5 text-dark">{{ stats.cancelled }}</div><div class="text-muted small">ยกเลิก</div></div>
+      <div class="col border-start"><div class="fw-bold fs-5 text-warning">{% if avg_rating %}{{ avg_rating|floatformat:1 }}★{% else %}—{% endif %}</div><div class="text-muted small">คะแนนเฉลี่ย</div></div>
+    </div>
+  </div>
+</div>
+
+{# ---------- action queues ---------- #}
+<div class="row g-3 mb-1">
+  <div class="col-lg-6">
+    <div class="card card-clean h-100">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-person-plus text-primary"></i> รอมอบหมายช่าง
+          <span class="badge bg-secondary ms-1">{{ queue_assign|length }}</span></h6>
+        {% if queue_assign %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>#</th><th>หัวข้อ</th><th>ผู้แจ้ง</th><th></th></tr></thead>
+            <tbody>
+              {% for r in queue_assign %}
+              <tr>
+                <td class="fw-semibold">#{{ r.pk }}</td>
+                <td>{{ r.title }}<div class="text-muted small">{{ r.category.name }}</div></td>
+                <td class="text-muted small">{{ r.reporter.display_name }}</td>
+                <td class="text-end"><a href="{{ r.get_absolute_url }}" class="btn btn-sm btn-primary"><i class="bi bi-person-check"></i> มอบหมาย</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}<div class="empty py-4"><i class="bi bi-check2-circle d-block"></i>ไม่มีใบรอมอบหมาย</div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card card-clean h-100">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-clipboard-check text-warning"></i> รอตรวจรับงาน
+          <span class="badge bg-warning text-dark ms-1">{{ queue_review|length }}</span></h6>
+        {% if queue_review %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>#</th><th>หัวข้อ</th><th>ช่าง</th><th></th></tr></thead>
+            <tbody>
+              {% for r in queue_review %}
+              <tr>
+                <td class="fw-semibold">#{{ r.pk }}</td>
+                <td>{{ r.title }}</td>
+                <td class="text-muted small">{{ r.technician.display_name|default:"—" }}</td>
+                <td class="text-end"><a href="{{ r.get_absolute_url }}" class="btn btn-sm btn-success"><i class="bi bi-check2-all"></i> ตรวจรับ</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}<div class="empty py-4"><i class="bi bi-check2-circle d-block"></i>ไม่มีงานรอตรวจรับ</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-0">
+  {# ---------- technician workload ---------- #}
+  <div class="col-lg-7">
+    <div class="card card-clean h-100">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-people text-success"></i> ภาระงานช่าง</h6>
+        {% if technicians %}
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead><tr><th>ช่าง</th><th class="text-center">กำลังทำ</th><th class="text-center">เสร็จแล้ว</th><th></th></tr></thead>
+            <tbody>
+              {% for t in technicians %}
+              <tr>
+                <td>{{ t.display_name }}{% if t.phone %}<div class="text-muted small">{{ t.phone }}</div>{% endif %}</td>
+                <td class="text-center"><span class="badge {% if t.active_jobs %}bg-primary{% else %}bg-light text-muted{% endif %}">{{ t.active_jobs }}</span></td>
+                <td class="text-center"><span class="badge badge-soft">{{ t.done_jobs }}</span></td>
+                <td class="text-end">
+                  {% if t.active_jobs %}<span class="text-primary small"><i class="bi bi-hourglass-split"></i> มีงานอยู่</span>
+                  {% else %}<span class="text-success small"><i class="bi bi-check-circle"></i> ว่าง</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}<div class="empty py-4"><i class="bi bi-person-x d-block"></i>ยังไม่มีช่างในระบบ</div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ---------- categories + people ---------- #}
+  <div class="col-lg-5">
+    <div class="card card-clean mb-3">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-tags text-primary"></i> ประเภทงานซ่อม</h6>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for c in categories %}
+          <span class="badge badge-soft py-2 px-3">{{ c.name }} <span class="text-muted">· {{ c.n }}</span></span>
+          {% empty %}
+          <span class="text-muted small">ยังไม่มีประเภทงาน</span>
+          {% endfor %}
+        </div>
+        <form method="post" class="d-flex gap-2">
+          {% csrf_token %}
+          <input type="hidden" name="add_category" value="1">
+          {{ cat_form.name }}
+          <button class="btn btn-primary flex-shrink-0"><i class="bi bi-plus-lg"></i> เพิ่ม</button>
+        </form>
+        {% for e in cat_form.name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="card card-clean">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-person-badge text-secondary"></i> ผู้ใช้ในระบบ</h6>
+        <div class="row text-center g-2">
+          <div class="col"><div class="fw-bold fs-4 text-secondary">{{ people.reporter }}</div><div class="text-muted small">ผู้แจ้งซ่อม</div></div>
+          <div class="col border-start"><div class="fw-bold fs-4 text-success">{{ people.technician }}</div><div class="text-muted small">ช่างซ่อม</div></div>
+          <div class="col border-start"><div class="fw-bold fs-4 text-primary">{{ people.admin }}</div><div class="text-muted small">ผู้ดูแล</div></div>
+        </div>
+        {% if user.is_staff %}
+        <a href="{% url 'admin:repairs_user_changelist' %}" class="btn btn-outline-secondary btn-sm w-100 mt-3"><i class="bi bi-people"></i> จัดการผู้ใช้ / เพิ่มช่าง</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---------- recent activity ---------- #}
+<div class="card card-clean mt-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="fw-bold mb-0"><i class="bi bi-clock-history text-muted"></i> ความเคลื่อนไหวล่าสุด</h6>
+      <a href="{% url 'request_list' %}" class="small">ดูใบแจ้งซ่อมทั้งหมด <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>#</th><th>หัวข้อ</th><th>ผู้แจ้ง</th><th>สถานะ</th><th>อัปเดต</th></tr></thead>
+        <tbody>
+          {% for r in recent %}
+          <tr>
+            <td class="fw-semibold">#{{ r.pk }}</td>
+            <td><a href="{{ r.get_absolute_url }}">{{ r.title }}</a></td>
+            <td class="text-muted small">{{ r.reporter.display_name }}</td>
+            <td><span class="badge bg-{{ r.status_style }}">{{ r.get_status_display }}</span></td>
+            <td class="text-muted small">{{ r.updated_at|date:"j M H:i" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

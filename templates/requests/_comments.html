@@ -1,0 +1,92 @@
+{# เธรดสนทนาของใบแจ้งซ่อม — ใช้ในหน้าห้องสนทนา (chat.html) #}
+{# ต้องมีตัวแปร: req, comments, comment_form, user #}
+<div class="card card-clean mb-3" id="comments">
+  <div class="card-body p-4">
+    <h6 class="fw-bold mb-3">
+      <i class="bi bi-chat-dots text-primary"></i> การสนทนา &amp; ความคืบหน้า
+      <span class="badge badge-soft ms-1">{{ comments|length }}</span>
+    </h6>
+
+    <div class="comment-thread mb-3">
+      {% for c in comments %}
+        {% if c.is_system %}
+        {# ---- ข้อความอัปเดตสถานะอัตโนมัติ (แสดงกลางเป็นเส้นเวลา) ---- #}
+        <div class="comment-system">
+          <i class="bi bi-info-circle"></i> {{ c.body }}
+          <span class="comment-system-time">· {{ c.created_at|date:"j M H:i" }} น.</span>
+        </div>
+        {% else %}
+        {# ---- ข้อความที่คนพิมพ์ ---- #}
+        <div class="comment-item d-flex gap-2 mb-3 {% if c.author_id == user.id %}is-me{% endif %}">
+          <div class="comment-avatar comment-role-{{ c.author.role }}">{{ c.author.display_name|first|upper }}</div>
+          <div class="comment-bubble">
+            <div class="comment-meta">
+              <strong>{{ c.author.display_name }}</strong>
+              <span class="badge badge-role role-{{ c.author.role }}">{{ c.author.get_role_display }}</span>
+              {% if c.is_internal %}<span class="badge bg-warning text-dark"><i class="bi bi-eye-slash"></i> ภายใน</span>{% endif %}
+              <span class="text-muted small ms-1">{{ c.created_at|date:"j M Y H:i" }} น.</span>
+            </div>
+            {% if c.body %}<div class="comment-body" style="white-space:pre-line">{{ c.body }}</div>{% endif %}
+
+            {% with atts=c.attachments.all %}
+            {% if atts %}
+            <div class="comment-atts">
+              {% for a in atts %}
+                {% if a.is_image %}
+                <a href="{{ a.file.url }}" target="_blank" rel="noopener" class="comment-img-link" title="{{ a.name }}">
+                  <img src="{{ a.file.url }}" class="comment-img" alt="{{ a.name }}">
+                </a>
+                {% else %}
+                <a href="{{ a.file.url }}" target="_blank" rel="noopener" class="comment-file">
+                  <i class="bi bi-paperclip"></i> {{ a.name }}
+                  {% if a.size_display %}<span class="text-muted small">· {{ a.size_display }}</span>{% endif %}
+                </a>
+                {% endif %}
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+          </div>
+        </div>
+        {% endif %}
+      {% empty %}
+      <div class="empty py-4"><i class="bi bi-chat-square-text d-block"></i>ยังไม่มีข้อความ — เริ่มพูดคุยเกี่ยวกับงานนี้ได้เลย</div>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="{% url 'add_comment' req.pk %}" enctype="multipart/form-data" id="chat-form">
+      {% csrf_token %}
+      <div id="composer" class="composer">
+        {{ comment_form.body }}
+        {% for e in comment_form.non_field_errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+        {% for e in comment_form.body.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+
+        {# แถบชิปแสดงไฟล์ที่เลือก (เติมด้วย JS — ลบก่อนส่งได้) #}
+        <div id="file-chips" class="file-chips" style="display:none"></div>
+
+        <div class="mt-2">
+          <label class="form-label small mb-1" for="{{ comment_form.files.id_for_label }}">
+            <i class="bi bi-paperclip"></i> {{ comment_form.files.label }}
+          </label>
+          {{ comment_form.files }}
+          <div class="form-text small">
+            {{ comment_form.files.help_text }} · ลากไฟล์มาวาง หรือวางรูปจากคลิปบอร์ด (Ctrl+V) ได้
+          </div>
+          {% for e in comment_form.files.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        {% if not user.is_reporter %}
+        <div class="form-check">
+          {{ comment_form.is_internal }}
+          <label class="form-check-label small" for="{{ comment_form.is_internal.id_for_label }}">
+            <i class="bi bi-eye-slash"></i> หมายเหตุภายใน (ผู้แจ้งไม่เห็น)
+          </label>
+        </div>
+        {% else %}<span class="text-muted small"><i class="bi bi-keyboard"></i> กด Enter เพื่อส่ง · Shift+Enter ขึ้นบรรทัดใหม่</span>{% endif %}
+        <button class="btn btn-primary"><i class="bi bi-send"></i> ส่งข้อความ</button>
+      </div>
+    </form>
+  </div>
+</div>

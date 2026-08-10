@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+{% load repair_extras %}
 {% block title %}ใบแจ้งซ่อม #{{ req.pk }}{% endblock %}
+{% block page_title %}ใบแจ้งซ่อม RQ-{{ req.pk }}{% endblock %}
+{% block page_sub %}{{ req.category.name }} · {{ req.location|default:"ไม่ระบุสถานที่" }}{% endblock %}
 {% block content %}
-<div class="d-flex align-items-center gap-2 mb-3">
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
   <a href="{% url 'request_list' %}" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i></a>
-  <h4 class="fw-bold mb-0">ใบแจ้งซ่อม #{{ req.pk }}</h4>
-  <span class="badge bg-{{ req.status_style }} ms-1">{{ req.get_status_display }}</span>
+  <span class="text-muted small" style="font-variant-numeric:tabular-nums">RQ-{{ req.pk }}</span>
+  <span class="pill pill-{{ req.status }}">{{ req.get_status_display }}</span>
 </div>
 
 <div class="row g-3">
@@ -51,10 +54,39 @@
           {% if assignment.work_date %}
           <div class="col-sm-6"><div class="text-muted small">วันที่ซ่อมเสร็จ</div>{{ assignment.work_date|date:"j M Y H:i" }} น.</div>
           {% endif %}
+          {% if req.work_images %}
+          <div class="col-12">
+            <div class="text-muted small mb-2"><i class="bi bi-camera"></i> รูปงานที่ซ่อมเสร็จ ({{ req.work_images|length }})</div>
+            <div class="row g-2">
+              {% for img in req.work_images %}
+              <div class="col-6 col-md-4">
+                <a href="{{ img.image.url }}" target="_blank" rel="noopener" title="ดูรูปเต็ม">
+                  <img src="{{ img.image.url }}" class="img-fluid rounded border repair-thumb" alt="รูปงานเสร็จ #{{ req.pk }}">
+                </a>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
     {% endif %}
+
+    {# ปุ่มเปิดห้องสนทนา (แท็บใหม่) #}
+    <div class="card card-clean mb-3">
+      <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h6 class="fw-bold mb-1"><i class="bi bi-chat-dots text-primary"></i> ห้องสนทนา &amp; ความคืบหน้า</h6>
+          <div class="text-muted small">พูดคุย ส่งรูป/ไฟล์ และติดตามงานร่วมกับทีมงาน</div>
+        </div>
+        <a href="{% url 'request_chat' req.pk %}" target="_blank" rel="noopener" class="btn btn-primary">
+          <i class="bi bi-chat-dots"></i> เปิดห้องสนทนา
+          {% if comments %}<span class="badge bg-light text-primary ms-1">{{ comments|length }}</span>{% endif %}
+          <i class="bi bi-box-arrow-up-right ms-1 small"></i>
+        </a>
+      </div>
+    </div>
 
     <!-- rating display -->
     {% if req.rating %}

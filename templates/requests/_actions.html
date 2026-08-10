@@ -50,11 +50,17 @@
   <div class="card card-clean mb-3">
     <div class="card-body p-4">
       <h6 class="fw-bold mb-3"><i class="bi bi-wrench-adjustable text-primary"></i> บันทึกผลและแจ้งเสร็จ</h6>
-      <form method="post" action="{% url 'job_complete' req.pk %}">
+      <form method="post" action="{% url 'job_complete' req.pk %}" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="mb-3">
           <label class="form-label small">รายละเอียดการซ่อม</label>
           {{ worklog_form.work_detail }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">{{ worklog_form.images.label }}</label>
+          {{ worklog_form.images }}
+          <div class="form-text small">{{ worklog_form.images.help_text }}</div>
+          {% for e in worklog_form.images.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
         </div>
         <button class="btn btn-success w-100"><i class="bi bi-check2-circle"></i> แจ้งงานเสร็จ (ส่งตรวจรับ)</button>
       </form>

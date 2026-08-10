@@ -25,13 +25,24 @@ from django.views.decorators.http import require_POST
 from .decorators import admin_required, role_required
 from .forms import (
     AssignForm,
+    CategoryForm,
+    CommentForm,
     RatingForm,
     RepairRequestForm,
     ReturnForm,
     SignUpForm,
     WorkLogForm,
 )
-from .models import Assignment, RepairImage, RepairRequest, User
+from .models import (
+    Assignment,
+    Category,
+    ChatRead,
+    CommentAttachment,
+    RepairImage,
+    RepairRequest,
+    User,
+    unread_counts,
+)
 
 S = RepairRequest.Status
 
@@ -124,11 +135,9 @@ def request_list(request):
         qs = qs.filter(reporter=user)
     elif user.is_technician:
         qs = qs.filter(assignments__technician=user).distinct()
-    # admin sees everything
-
-    status = request.GET.get("status", "")
-    if status in S.values:
-        qs = qs.filter(status=status)
+    else:
+        # admin เห็นทุกใบ + มีคอลัมน์ช่าง → prefetch กันคิวรีต่อแถว (N+1)
+        qs = qs.prefetch_related("assignments__technician")
 
     keyword = request.GET.get("q", "").strip()
     if keyword:
@@ -138,12 +147,32 @@ def request_list(request):
             | Q(location__icontains=keyword)
         )
 
+    # จำนวนงานแต่ละสถานะ (สำหรับชิปตัวกรอง) — นับก่อนกรองสถานะ
+    counts = dict(qs.values_list("status").annotate(n=Count("id")))
+    total_count = sum(counts.values())
+
+    status = request.GET.get("status", "")
+    if status in S.values:
+        qs = qs.filter(status=status)
+
+    # แนบจำนวนข้อความที่ยังไม่ได้อ่านของแต่ละใบ (คำนวณครั้งเดียวแบบ batch)
+    requests = list(qs)
+    umap = unread_counts(user, requests)
+    for r in requests:
+        r.unread = umap.get(r.pk, 0)
+
+    # ชิปตัวกรอง: ทั้งหมด + เฉพาะสถานะที่มีงาน
+    filters = [{"value": "", "label": "ทั้งหมด", "n": total_count}]
+    for value, label in S.choices:
+        if counts.get(value):
+            filters.append({"value": value, "label": label, "n": counts[value]})
+
     return render(
         request,
         "requests/request_list.html",
         {
-            "requests": qs,
-            "status_choices": S.choices,
+            "requests": requests,
+            "filters": filters,
             "cur_status": status,
             "keyword": keyword,
         },
@@ -153,10 +182,13 @@ def request_list(request):
 # ---------------------------------------------------------------------------
 # Create / edit / cancel (reporter)
 # ---------------------------------------------------------------------------
-def _save_images(req, images):
-    """สร้าง RepairImage จากไฟล์รูปที่ผ่านการตรวจแล้ว."""
+def _save_images(req, images, kind=RepairImage.Kind.REPORT):
+    """สร้าง RepairImage จากไฟล์รูปที่ผ่านการตรวจแล้ว — คืนจำนวนรูปที่บันทึก."""
+    count = 0
     for image in images:
-        RepairImage.objects.create(request=req, image=image)
+        RepairImage.objects.create(request=req, image=image, kind=kind)
+        count += 1
+    return count
 
 
 @role_required("reporter")
@@ -231,6 +263,17 @@ def request_cancel(request, pk):
 # ---------------------------------------------------------------------------
 # Detail (dispatches all the action buttons)
 # ---------------------------------------------------------------------------
+def _can_access_request(user, req):
+    """สิทธิ์ดู/สนทนาในใบแจ้งซ่อม: แอดมินทุกใบ · ผู้แจ้งเฉพาะของตน · ช่างเฉพาะที่มอบหมาย."""
+    if user.is_admin_role:
+        return True
+    if user.is_reporter:
+        return req.reporter_id == user.id
+    if user.is_technician:
+        return req.assignments.filter(technician=user).exists()
+    return False
+
+
 @login_required
 def request_detail(request, pk):
     req = get_object_or_404(
@@ -254,6 +297,7 @@ def request_detail(request, pk):
         "return_form": ReturnForm(),
         "worklog_form": WorkLogForm(instance=assignment),
         "rating_form": RatingForm(),
+        "comments": req.comments_for(user),
         # ผู้แจ้ง (เจ้าของ) จัดการรูปได้เฉพาะตอนใบยังแก้ไขได้
         "can_manage_images": (
             user.is_reporter
@@ -262,6 +306,70 @@ def request_detail(request, pk):
         ),
     }
     return render(request, "requests/request_detail.html", ctx)
+
+
+@login_required
+def request_chat(request, pk):
+    """ห้องสนทนาแยกของใบแจ้งซ่อม — หน้าเต็มสำหรับพูดคุยและแนบไฟล์."""
+    req = get_object_or_404(
+        RepairRequest.objects.select_related("reporter", "category"), pk=pk
+    )
+    user = request.user
+    if not _can_access_request(user, req):
+        messages.error(request, "คุณไม่มีสิทธิ์เข้าห้องสนทนานี้")
+        return redirect("request_list")
+
+    now = timezone.now()
+    comments = list(req.comments_for(user).prefetch_related("attachments"))
+
+    # ทำเครื่องหมายว่า "อ่านถึงข้อความล่าสุดที่แสดง" — ใช้เวลาของข้อความใหม่สุดที่โหลดมา
+    # (ไม่ใช่ now() หลังโหลด) กันกรณีมีข้อความเข้ามาระหว่างโหลดแล้วถูกนับว่าอ่านทั้งที่ยังไม่เห็น
+    newest = max((c.created_at for c in comments), default=now)
+    ChatRead.objects.update_or_create(
+        user=user, request=req, defaults={"last_read_at": newest}
+    )
+
+    return render(
+        request,
+        "requests/chat.html",
+        {
+            "req": req,
+            "comments": comments,
+            "comment_form": CommentForm(),
+        },
+    )
+
+
+@login_required
+@require_POST
+def add_comment(request, pk):
+    """ส่งข้อความ + ไฟล์แนบ ในเธรดสนทนา (ผู้แจ้ง/แอดมิน/ช่างที่เกี่ยวข้อง)."""
+    req = get_object_or_404(RepairRequest, pk=pk)
+    user = request.user
+    if not _can_access_request(user, req):
+        messages.error(request, "คุณไม่มีสิทธิ์สนทนาในใบแจ้งซ่อมนี้")
+        return redirect("request_list")
+
+    form = CommentForm(request.POST, request.FILES)
+    if form.is_valid():
+        with transaction.atomic():
+            comment = form.save(commit=False)
+            comment.request = req
+            comment.author = user
+            if user.is_reporter:
+                comment.is_internal = False  # ผู้แจ้งตั้งหมายเหตุภายในไม่ได้
+            comment.save()
+            for f in form.cleaned_data.get("files", []):
+                CommentAttachment.objects.create(
+                    comment=comment, file=f, original_name=f.name[:255]
+                )
+        messages.success(request, "ส่งข้อความแล้ว")
+    else:
+        first_error = next(iter(form.errors.values()), None)
+        messages.error(
+            request, first_error[0] if first_error else "ส่งข้อความไม่สำเร็จ"
+        )
+    return redirect("request_chat", pk=req.pk)
 
 
 # ---------------------------------------------------------------------------
@@ -276,15 +384,17 @@ def request_assign(request, pk):
         return redirect(req.get_absolute_url())
     form = AssignForm(request.POST)
     if form.is_valid():
+        tech = form.cleaned_data["technician"]
         with transaction.atomic():
             Assignment.objects.create(
                 request=req,
-                technician=form.cleaned_data["technician"],
+                technician=tech,
                 assigned_date=timezone.now(),
             )
             req.status = S.ASSIGNED
             req.admin_note = form.cleaned_data.get("note", "")
             req.save(update_fields=["status", "admin_note", "updated_at"])
+            req.log_activity(request.user, f"มอบหมายงานให้ช่าง {tech.display_name}")
         messages.success(
             request,
             f"มอบหมายงาน #{req.pk} ให้ {form.cleaned_data['technician'].display_name} แล้ว",
@@ -309,12 +419,14 @@ def request_return(request, pk):
         req.status = S.RETURNED
         req.admin_note = reason
         req.save(update_fields=["status", "admin_note", "updated_at"])
+        req.log_activity(request.user, f"ตีกลับให้ผู้แจ้งแก้ไข: {reason}")
         messages.info(request, "ตีกลับใบแจ้งซ่อมให้ผู้แจ้งแก้ไขแล้ว")
     elif req.status == S.REVIEW:
         # ตรวจรับไม่ผ่าน ส่งกลับให้ช่างแก้ไข
         req.status = S.IN_PROGRESS
         req.admin_note = reason
         req.save(update_fields=["status", "admin_note", "updated_at"])
+        req.log_activity(request.user, f"ส่งงานกลับให้ช่างแก้ไข: {reason}")
         messages.info(request, "ส่งงานกลับให้ช่างแก้ไขแล้ว")
     else:
         messages.error(request, "สถานะปัจจุบันไม่สามารถตีกลับได้")
@@ -330,6 +442,7 @@ def request_accept(request, pk):
         return redirect(req.get_absolute_url())
     req.status = S.DONE
     req.save(update_fields=["status", "updated_at"])
+    req.log_activity(request.user, "ตรวจรับผ่าน — งานเสร็จสมบูรณ์ ✅")
     messages.success(request, f"ตรวจรับงาน #{req.pk} เรียบร้อย งานเสร็จสมบูรณ์")
     return redirect(req.get_absolute_url())
 
@@ -349,6 +462,7 @@ def job_start(request, pk):
         return redirect(req.get_absolute_url())
     req.status = S.IN_PROGRESS
     req.save(update_fields=["status", "updated_at"])
+    req.log_activity(request.user, "ช่างรับงานแล้ว เริ่มดำเนินการซ่อม 🔧")
     messages.success(request, "รับงานแล้ว เริ่มดำเนินการซ่อม")
     return redirect(req.get_absolute_url())
 
@@ -364,17 +478,29 @@ def job_complete(request, pk):
     if req.status != S.IN_PROGRESS:
         messages.error(request, "แจ้งเสร็จได้เฉพาะงานที่กำลังดำเนินการเท่านั้น")
         return redirect(req.get_absolute_url())
-    form = WorkLogForm(request.POST, instance=assignment)
+    form = WorkLogForm(request.POST, request.FILES, instance=assignment)
     if form.is_valid():
         with transaction.atomic():
             job = form.save(commit=False)
             job.work_date = timezone.now()
             job.save()
+            n_imgs = _save_images(
+                req, form.cleaned_data.get("images", []), RepairImage.Kind.WORK
+            )
             req.status = S.REVIEW
             req.save(update_fields=["status", "updated_at"])
+            note = "ช่างแจ้งงานเสร็จ รอผู้ดูแลตรวจรับ 📋"
+            if n_imgs:
+                note += f" (แนบรูปงาน {n_imgs} รูป)"
+            req.log_activity(request.user, note)
         messages.success(request, "บันทึกผลและแจ้งงานเสร็จ รอผู้ดูแลตรวจรับ")
     else:
-        messages.error(request, "กรุณาบันทึกรายละเอียดการซ่อม")
+        # แสดงข้อความ error แรกที่พบ (เช่น รูปเกินจำนวน/ขนาด) ให้ตรงกับสาเหตุจริง
+        first_error = next(iter(form.errors.values()), None)
+        messages.error(
+            request,
+            first_error[0] if first_error else "กรุณาบันทึกรายละเอียดการซ่อม",
+        )
     return redirect(req.get_absolute_url())
 
 
@@ -400,6 +526,86 @@ def request_rate(request, pk):
     else:
         messages.error(request, "กรุณาให้คะแนนความพึงพอใจ")
     return redirect(req.get_absolute_url())
+
+
+# ---------------------------------------------------------------------------
+# Admin: management console (คอนโซลจัดการระบบ)
+# ---------------------------------------------------------------------------
+@admin_required
+def manage(request):
+    """หน้าจัดการหลักของผู้ดูแล — คิวงาน, ภาระงานช่าง, จัดการประเภทงาน, ผู้ใช้."""
+    # เพิ่มประเภทงานซ่อมได้จากหน้านี้เลย
+    if request.method == "POST" and "add_category" in request.POST:
+        cat_form = CategoryForm(request.POST)
+        if cat_form.is_valid():
+            cat_form.save()
+            messages.success(request, f"เพิ่มประเภทงาน “{cat_form.cleaned_data['name']}” แล้ว")
+            return redirect("manage")
+        messages.error(request, "เพิ่มประเภทงานไม่สำเร็จ (ชื่ออาจซ้ำหรือว่าง)")
+    else:
+        cat_form = CategoryForm()
+
+    qs = RepairRequest.objects.all()
+    stats = {
+        "pending": qs.filter(status=S.PENDING).count(),
+        "assigned": qs.filter(status=S.ASSIGNED).count(),
+        "in_progress": qs.filter(status=S.IN_PROGRESS).count(),
+        "review": qs.filter(status=S.REVIEW).count(),
+        "done": qs.filter(status=S.DONE).count(),
+        "returned": qs.filter(status=S.RETURNED).count(),
+        "cancelled": qs.filter(status=S.CANCELLED).count(),
+        "total": qs.count(),
+    }
+
+    # คิวงานที่ผู้ดูแลต้องลงมือ
+    queue_assign = qs.filter(status=S.PENDING).select_related("reporter", "category").order_by("created_at")
+    queue_review = qs.filter(status=S.REVIEW).select_related("reporter", "category").order_by("updated_at")
+
+    # ภาระงานช่างแต่ละคน
+    technicians = (
+        User.objects.filter(role=User.Role.TECHNICIAN, is_active=True)
+        .annotate(
+            active_jobs=Count(
+                "jobs",
+                filter=Q(jobs__request__status__in=[S.ASSIGNED, S.IN_PROGRESS]),
+                distinct=True,
+            ),
+            done_jobs=Count(
+                "jobs", filter=Q(jobs__request__status=S.DONE), distinct=True
+            ),
+        )
+        .order_by("-active_jobs", "username")
+    )
+
+    categories = Category.objects.annotate(n=Count("requests")).order_by("name")
+
+    people = {
+        "reporter": User.objects.filter(role=User.Role.REPORTER).count(),
+        "technician": User.objects.filter(role=User.Role.TECHNICIAN).count(),
+        "admin": User.objects.filter(role=User.Role.ADMIN).count(),
+    }
+
+    avg_rating = RepairRequest.objects.filter(rating__isnull=False).aggregate(
+        a=Avg("rating__score")
+    )["a"]
+
+    recent = qs.select_related("reporter", "category").order_by("-updated_at")[:8]
+
+    return render(
+        request,
+        "manage.html",
+        {
+            "stats": stats,
+            "queue_assign": queue_assign,
+            "queue_review": queue_review,
+            "technicians": technicians,
+            "categories": categories,
+            "cat_form": cat_form,
+            "people": people,
+            "avg_rating": avg_rating,
+            "recent": recent,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

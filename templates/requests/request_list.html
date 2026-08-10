@@ -1,70 +1,75 @@
 {% extends "base.html" %}
+{% load repair_extras %}
 {% block title %}ใบแจ้งซ่อม{% endblock %}
+{% block page_title %}{% if user.is_reporter %}ใบแจ้งซ่อมของฉัน{% elif user.is_technician %}คิวงานทั้งหมด{% else %}ใบแจ้งซ่อมทั้งหมด{% endif %}{% endblock %}
+{% block page_sub %}{% if keyword %}ผลการค้นหา “{{ keyword }}”{% else %}จัดการและติดตามงานซ่อม{% endif %}{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h4 class="fw-bold mb-0">
-    {% if user.is_reporter %}ใบแจ้งซ่อมของฉัน{% elif user.is_technician %}งานของฉัน{% else %}ใบแจ้งซ่อมทั้งหมด{% endif %}
-  </h4>
-  {% if user.is_reporter %}
-  <a href="{% url 'request_create' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> แจ้งซ่อมใหม่</a>
-  {% endif %}
-</div>
 
-<form class="card card-clean mb-3" method="get">
-  <div class="card-body py-3">
-    <div class="row g-2 align-items-end">
-      <div class="col-md-5">
-        <label class="form-label small text-muted mb-1">ค้นหา</label>
-        <input type="text" name="q" value="{{ keyword }}" class="form-control" placeholder="หัวข้อ / รายละเอียด / สถานที่">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label small text-muted mb-1">สถานะ</label>
-        <select name="status" class="form-select">
-          <option value="">— ทุกสถานะ —</option>
-          {% for val, label in status_choices %}
-          <option value="{{ val }}" {% if val == cur_status %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-3 d-grid">
-        <button class="btn btn-outline-primary"><i class="bi bi-search"></i> ค้นหา</button>
-      </div>
-    </div>
+{# แถบค้นหา + ตัวกรองสถานะแบบชิป #}
+<form method="get" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+  <div class="search" style="border:1px solid var(--line-2);border-radius:11px;padding:8px 12px;display:flex;align-items:center;gap:8px;background:var(--surface-2);min-width:240px">
+    <i class="bi bi-search text-muted small"></i>
+    <input name="q" value="{{ keyword }}" placeholder="ค้นหา หัวข้อ / สถานที่ / เลขที่" style="border:0;outline:0;background:transparent;color:var(--ink);width:100%;font-size:13px">
   </div>
+  {% if cur_status %}<input type="hidden" name="status" value="{{ cur_status }}">{% endif %}
+  <button class="btn btn-outline-primary btn-sm">ค้นหา</button>
+  {% if keyword or cur_status %}<a href="{% url 'request_list' %}" class="btn btn-light btn-sm">ล้าง</a>{% endif %}
 </form>
 
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  {% for f in filters %}
+  <a class="chip-filter {% if f.value == cur_status %}active{% endif %}"
+     href="?{% if f.value %}status={{ f.value }}{% endif %}{% if keyword %}{% if f.value %}&{% endif %}q={{ keyword }}{% endif %}">
+    {{ f.label }} <span class="n">{{ f.n }}</span>
+  </a>
+  {% endfor %}
+</div>
+
 <div class="card card-clean">
-  <div class="card-body">
+  <div class="card-body p-0">
     {% if requests %}
     <div class="table-responsive">
-      <table class="table align-middle">
+      <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th>#</th><th>หัวข้อ</th><th>ประเภท</th>
+            <th style="width:104px">เลขที่</th>
+            <th>เรื่องที่แจ้ง</th>
             {% if not user.is_reporter %}<th>ผู้แจ้ง</th>{% endif %}
-            {% if user.is_admin_role %}<th>ช่าง</th>{% endif %}
-            <th>สถานะ</th><th>วันที่แจ้ง</th>
+            {% if user.is_admin_role %}<th>ช่างผู้รับผิดชอบ</th>{% endif %}
+            <th>สถานะ</th>
+            <th class="text-end">สนทนา</th>
           </tr>
         </thead>
         <tbody>
           {% for r in requests %}
-          <tr>
-            <td class="fw-semibold">#{{ r.pk }}</td>
-            <td><a href="{{ r.get_absolute_url }}">{{ r.title }}</a>
-              {% if r.location %}<div class="text-muted small"><i class="bi bi-geo-alt"></i> {{ r.location }}</div>{% endif %}
+          <tr onclick="window.location='{{ r.get_absolute_url }}'" style="cursor:pointer">
+            <td class="text-muted small" style="font-variant-numeric:tabular-nums">RQ-{{ r.pk }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <span class="cat-ico" style="width:34px;height:34px;flex:0 0 34px;font-size:15px"><i class="bi {{ r.category.name|cat_icon }}"></i></span>
+                <div class="min-w-0">
+                  <div class="fw-medium text-truncate">{{ r.title }}</div>
+                  <div class="text-muted small text-truncate">{{ r.category.name }}{% if r.location %} · {{ r.location }}{% endif %}</div>
+                </div>
+              </div>
             </td>
-            <td><span class="badge badge-soft">{{ r.category.name }}</span></td>
             {% if not user.is_reporter %}<td class="text-muted small">{{ r.reporter.display_name }}</td>{% endif %}
             {% if user.is_admin_role %}<td class="text-muted small">{{ r.technician.display_name|default:"—" }}</td>{% endif %}
-            <td><span class="badge bg-{{ r.status_style }}">{{ r.get_status_display }}</span></td>
-            <td class="text-muted small">{{ r.created_at|date:"j M Y" }}</td>
+            <td><span class="pill pill-{{ r.status }}">{{ r.get_status_display }}</span></td>
+            <td class="text-end" onclick="event.stopPropagation()">
+              <a href="{% url 'request_chat' r.pk %}" target="_blank" rel="noopener"
+                 class="icon-btn position-relative d-inline-grid" style="width:34px;height:34px;font-size:13px" title="เปิดห้องสนทนา">
+                <i class="bi bi-chat-dots"></i>
+                {% if r.unread %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill" style="background:var(--danger);color:#fff">{{ r.unread }}</span>{% endif %}
+              </a>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% else %}
-    <div class="empty"><i class="bi bi-search d-block"></i>ไม่พบใบแจ้งซ่อมที่ตรงเงื่อนไข</div>
+    <div class="empty py-5"><i class="bi bi-inbox d-block"></i>ไม่พบงานที่ตรงเงื่อนไข</div>
     {% endif %}
   </div>
 </div>

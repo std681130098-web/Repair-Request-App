@@ -1,11 +1,11 @@
 {# แกลเลอรีรูปภาพประกอบใบแจ้งซ่อม — ใช้ทั้งหน้ารายละเอียดและหน้าแก้ไข #}
 {# ต้องมีตัวแปร: req, can_manage_images #}
-{% if req.images.all %}
+{% if req.report_images %}
 <div class="card card-clean mb-3">
   <div class="card-body p-4">
-    <h6 class="fw-bold mb-3"><i class="bi bi-images text-primary"></i> รูปภาพประกอบ ({{ req.images.all|length }})</h6>
+    <h6 class="fw-bold mb-3"><i class="bi bi-images text-primary"></i> รูปภาพประกอบ ({{ req.report_images|length }})</h6>
     <div class="row g-2">
-      {% for img in req.images.all %}
+      {% for img in req.report_images %}
       <div class="col-6 col-md-4">
         <a href="{{ img.image.url }}" target="_blank" rel="noopener" title="ดูรูปเต็ม">
           <img src="{{ img.image.url }}" class="img-fluid rounded border repair-thumb" alt="รูปแจ้งซ่อม #{{ req.pk }}">
