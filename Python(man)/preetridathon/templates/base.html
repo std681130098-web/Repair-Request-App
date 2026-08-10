@@ -1,0 +1,133 @@
+{% load static repair_extras %}
+<!doctype html>
+<html lang="th" data-theme="light" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ศูนย์งานซ่อม{% endblock %}</title>
+  {# ตั้งธีมก่อนวาดหน้า กัน flash #}
+  <script>(function(){try{var t=localStorage.getItem('rp-theme')||'light';var h=document.documentElement;h.setAttribute('data-theme',t);h.setAttribute('data-bs-theme',t);}catch(e){}})();</script>
+  {# assets served locally (offline-ready) #}
+  <link href="{% static 'vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
+  <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet">
+  <link href="{% static 'vendor/fonts/ibm-plex-thai.css' %}" rel="stylesheet">
+  <link href="{% static 'vendor/fonts/sarabun.css' %}" rel="stylesheet">
+  <link href="{% static_v 'css/style.css' %}" rel="stylesheet">
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="app-shell">
+  <div class="backdrop" onclick="rpToggleNav()"></div>
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <aside class="sidebar">
+    <a href="{% url 'dashboard' %}" class="sidebar-brand text-reset">
+      <span class="logo"><i class="bi bi-wrench-adjustable"></i></span>
+      <span><b>ศูนย์งานซ่อม</b><small>วิทยาลัยเทคนิค</small></span>
+    </a>
+
+    <nav class="side-nav">
+      {% url 'dashboard' as u_dash %}{% url 'request_list' as u_list %}
+      <a class="side-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{{ u_dash }}">
+        <i class="bi bi-house"></i>
+        <span>{% if user.is_reporter %}หน้าหลัก{% elif user.is_technician %}งานของฉัน{% else %}ภาพรวม{% endif %}</span>
+      </a>
+      <a class="side-link {% if request.resolver_match.url_name == 'request_list' or request.resolver_match.url_name == 'request_detail' or request.resolver_match.url_name == 'request_chat' %}active{% endif %}" href="{{ u_list }}">
+        <i class="bi bi-list-check"></i>
+        <span>{% if user.is_reporter %}ใบแจ้งซ่อมของฉัน{% elif user.is_technician %}คิวงานทั้งหมด{% else %}ใบแจ้งซ่อมทั้งหมด{% endif %}</span>
+        {% if nav_tech_todo %}<span class="cnt">{{ nav_tech_todo }}</span>
+        {% elif nav_unread %}<span class="cnt hot">{{ nav_unread }}</span>{% endif %}
+      </a>
+      {% if user.is_reporter %}
+      <a class="side-link {% if request.resolver_match.url_name == 'request_create' %}active{% endif %}" href="{% url 'request_create' %}">
+        <i class="bi bi-plus-circle"></i><span>แจ้งซ่อมใหม่</span>
+      </a>
+      {% endif %}
+      {% if user.is_admin_role %}
+      <a class="side-link {% if request.resolver_match.url_name == 'manage' %}active{% endif %}" href="{% url 'manage' %}">
+        <i class="bi bi-sliders"></i><span>คิวงาน &amp; ช่าง</span>
+        {% if nav_admin_todo %}<span class="cnt {% if request.resolver_match.url_name != 'manage' %}hot{% endif %}">{{ nav_admin_todo }}</span>{% endif %}
+      </a>
+      <a class="side-link {% if request.resolver_match.url_name == 'report' %}active{% endif %}" href="{% url 'report' %}">
+        <i class="bi bi-bar-chart"></i><span>รายงานสรุป</span>
+      </a>
+      {% endif %}
+    </nav>
+
+    <div class="side-foot">
+      {% if user.is_staff %}
+      <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-gear"></i><span>Django Admin</span></a>
+      {% endif %}
+      <div class="user-chip">
+        <span class="ava comment-role-{{ user.role }}">{{ user.display_name|slice:":1"|upper }}</span>
+        <span class="min-w-0" style="min-width:0;flex:1">
+          <span class="nm d-block">{{ user.display_name }}</span>
+          <span class="rl">{{ user.get_role_display }}</span>
+        </span>
+        <form method="post" action="{% url 'logout' %}" class="m-0">{% csrf_token %}
+          <button class="icon-btn" style="width:32px;height:32px;font-size:13px" title="ออกจากระบบ"><i class="bi bi-box-arrow-right"></i></button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN ==================== -->
+  <div class="app-main">
+    <header class="topbar">
+      <button class="icon-btn nav-toggle" onclick="rpToggleNav()" title="เมนู"><i class="bi bi-list"></i></button>
+      <div class="min-w-0" style="min-width:0">
+        <div class="t-title text-truncate">{% block page_title %}ศูนย์งานซ่อม{% endblock %}</div>
+        <div class="t-sub text-truncate">{% block page_sub %}ระบบแจ้งซ่อมออนไลน์{% endblock %}</div>
+      </div>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <form method="get" action="{% url 'request_list' %}" class="search d-none d-sm-flex">
+          <i class="bi bi-search text-muted small"></i>
+          <input name="q" placeholder="ค้นหางาน / สถานที่">
+        </form>
+        <button class="icon-btn" onclick="rpToggleTheme()" title="สลับโหมดสว่าง/มืด"><i class="bi bi-moon-stars" data-theme-icon></i></button>
+        <a class="icon-btn d-none d-sm-inline-grid" href="{% url 'request_list' %}" title="การแจ้งเตือน">
+          <i class="bi bi-bell"></i>{% if nav_unread %}<span class="dot"></span>{% endif %}
+        </a>
+        {% if user.is_reporter %}
+        <a class="btn btn-primary" href="{% url 'request_create' %}"><i class="bi bi-plus-lg me-1"></i>แจ้งซ่อมใหม่</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="app-content">
+{% else %}
+<main class="container py-3">
+{% endif %}
+
+      {% if messages %}
+        {% for m in messages %}
+          <div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% block content %}{% endblock %}
+
+{% if user.is_authenticated %}
+      <footer class="app-foot text-center">
+        ระบบแจ้งซ่อมออนไลน์ · พัฒนาด้วย Django · โครงงานรายวิชา DevOps (31901-2008)
+      </footer>
+    </main>
+  </div>
+</div>
+{% else %}
+</main>
+{% endif %}
+
+<script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+<script>
+  function rpToggleTheme(){var h=document.documentElement;var cur=h.getAttribute('data-theme')==='dark'?'light':'dark';h.setAttribute('data-theme',cur);h.setAttribute('data-bs-theme',cur);try{localStorage.setItem('rp-theme',cur);}catch(e){}rpSyncThemeIcon();}
+  function rpSyncThemeIcon(){var d=document.documentElement.getAttribute('data-theme')==='dark';document.querySelectorAll('[data-theme-icon]').forEach(function(el){el.className='bi '+(d?'bi-sun':'bi-moon-stars');});}
+  function rpToggleNav(){var s=document.querySelector('.app-shell');if(s)s.classList.toggle('nav-open');}
+  rpSyncThemeIcon();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

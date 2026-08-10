@@ -1,0 +1,113 @@
+{# Action panel — shows buttons/forms based on the viewer's role and the request status #}
+
+{% if user.is_reporter %}
+  {# ---------- REPORTER ---------- #}
+  {% if req.status == 'pending' or req.status == 'returned' %}
+  <div class="card card-clean mb-3">
+    <div class="card-body p-4 d-grid gap-2">
+      <a href="{% url 'request_edit' req.pk %}" class="btn btn-primary"><i class="bi bi-pencil"></i> แก้ไขใบแจ้งซ่อม</a>
+      <form method="post" action="{% url 'request_cancel' req.pk %}" onsubmit="return confirm('ยืนยันยกเลิกใบแจ้งซ่อมนี้?');">
+        {% csrf_token %}
+        <button class="btn btn-outline-danger w-100"><i class="bi bi-x-circle"></i> ยกเลิกใบแจ้งซ่อม</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if req.status == 'done' and not req.has_rating %}
+  <div class="card card-clean mb-3">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-star text-warning"></i> ประเมินความพึงพอใจ</h6>
+      <form method="post" action="{% url 'request_rate' req.pk %}">
+        {% csrf_token %}
+        <div class="star-rate mb-3 text-center">
+          {% for radio in rating_form.score %}
+            <span class="d-inline-block text-center mx-1">
+              {{ radio.tag }}
+              <label for="{{ radio.id_for_label }}" class="d-block small">{{ radio.choice_label }}</label>
+            </span>
+          {% endfor %}
+        </div>
+        <div class="mb-3">{{ rating_form.comment }}</div>
+        <button class="btn btn-warning w-100"><i class="bi bi-send"></i> ส่งการประเมิน</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+{% elif user.is_technician %}
+  {# ---------- TECHNICIAN ---------- #}
+  {% if req.status == 'assigned' %}
+  <div class="card card-clean mb-3">
+    <div class="card-body p-4 d-grid">
+      <form method="post" action="{% url 'job_start' req.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-primary w-100"><i class="bi bi-play-circle"></i> รับงาน / เริ่มดำเนินการ</button>
+      </form>
+    </div>
+  </div>
+  {% elif req.status == 'in_progress' %}
+  <div class="card card-clean mb-3">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-wrench-adjustable text-primary"></i> บันทึกผลและแจ้งเสร็จ</h6>
+      <form method="post" action="{% url 'job_complete' req.pk %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label small">รายละเอียดการซ่อม</label>
+          {{ worklog_form.work_detail }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">{{ worklog_form.images.label }}</label>
+          {{ worklog_form.images }}
+          <div class="form-text small">{{ worklog_form.images.help_text }}</div>
+          {% for e in worklog_form.images.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        </div>
+        <button class="btn btn-success w-100"><i class="bi bi-check2-circle"></i> แจ้งงานเสร็จ (ส่งตรวจรับ)</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+{% elif user.is_admin_role %}
+  {# ---------- ADMIN ---------- #}
+  {% if req.status == 'pending' or req.status == 'returned' %}
+  <div class="card card-clean mb-3">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-person-check text-primary"></i> ตรวจสอบ &amp; มอบหมายงาน</h6>
+      <form method="post" action="{% url 'request_assign' req.pk %}">
+        {% csrf_token %}
+        <div class="mb-2">{{ assign_form.technician.label_tag }} {{ assign_form.technician }}</div>
+        <div class="mb-3">{{ assign_form.note.label_tag }} {{ assign_form.note }}</div>
+        <button class="btn btn-primary w-100"><i class="bi bi-send"></i> อนุมัติและมอบหมาย</button>
+      </form>
+      {% if req.status == 'pending' %}
+      {# ตีกลับได้เฉพาะใบที่ยังรอตรวจสอบ — ใบที่ตีกลับไปแล้วกำลังรอผู้แจ้งแก้ไข #}
+      <hr>
+      <form method="post" action="{% url 'request_return' req.pk %}">
+        {% csrf_token %}
+        <div class="mb-2">{{ return_form.reason }}</div>
+        <button class="btn btn-outline-danger w-100"><i class="bi bi-arrow-counterclockwise"></i> ตีกลับให้แก้ไข</button>
+      </form>
+      {% else %}
+      <div class="text-muted small mt-3"><i class="bi bi-info-circle"></i> ใบนี้ถูกตีกลับให้ผู้แจ้งแก้ไขแล้ว — รอผู้แจ้งส่งกลับเข้ามาใหม่</div>
+      {% endif %}
+    </div>
+  </div>
+  {% elif req.status == 'review' %}
+  <div class="card card-clean mb-3">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-clipboard-check text-warning"></i> ตรวจรับงาน</h6>
+      <form method="post" action="{% url 'request_accept' req.pk %}" class="mb-3">
+        {% csrf_token %}
+        <button class="btn btn-success w-100"><i class="bi bi-check2-all"></i> ตรวจรับผ่าน (ปิดงาน)</button>
+      </form>
+      <hr>
+      <form method="post" action="{% url 'request_return' req.pk %}">
+        {% csrf_token %}
+        <div class="mb-2">{{ return_form.reason }}</div>
+        <button class="btn btn-outline-danger w-100"><i class="bi bi-arrow-counterclockwise"></i> ส่งกลับให้ช่างแก้ไข</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}

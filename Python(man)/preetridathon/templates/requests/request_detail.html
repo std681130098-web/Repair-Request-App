@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load repair_extras %}
+{% block title %}ใบแจ้งซ่อม #{{ req.pk }}{% endblock %}
+{% block page_title %}ใบแจ้งซ่อม RQ-{{ req.pk }}{% endblock %}
+{% block page_sub %}{{ req.category.name }} · {{ req.location|default:"ไม่ระบุสถานที่" }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+  <a href="{% url 'request_list' %}" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i></a>
+  <span class="text-muted small" style="font-variant-numeric:tabular-nums">RQ-{{ req.pk }}</span>
+  <span class="pill pill-{{ req.status }}">{{ req.get_status_display }}</span>
+</div>
+
+<div class="row g-3">
+  <!-- ================= LEFT: details ================= -->
+  <div class="col-lg-8">
+    <div class="card card-clean mb-3">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3">{{ req.title }}</h5>
+        <div class="row g-3 mb-2">
+          <div class="col-sm-6"><div class="text-muted small">ประเภทงาน</div><span class="badge badge-soft">{{ req.category.name }}</span></div>
+          <div class="col-sm-6"><div class="text-muted small">สถานที่</div>{{ req.location|default:"—" }}</div>
+          <div class="col-sm-6"><div class="text-muted small">ผู้แจ้ง</div>{{ req.reporter.display_name }}
+            {% if req.reporter.phone %}<span class="text-muted small">· {{ req.reporter.phone }}</span>{% endif %}
+          </div>
+          <div class="col-sm-6"><div class="text-muted small">วันที่แจ้ง</div>{{ req.created_at|date:"j M Y H:i" }} น.</div>
+        </div>
+        {% if req.detail %}
+        <div class="text-muted small mt-2">รายละเอียด</div>
+        <p class="mb-0" style="white-space:pre-line">{{ req.detail }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# รูปภาพประกอบ (ถ่ายจุดที่ต้องซ่อม) #}
+    {% include "requests/_images.html" %}
+
+    {% if req.admin_note %}
+    <div class="alert alert-{% if req.status == 'returned' %}danger{% else %}warning{% endif %}">
+      <i class="bi bi-chat-left-text"></i> <strong>หมายเหตุจากผู้ดูแล:</strong> {{ req.admin_note }}
+    </div>
+    {% endif %}
+
+    <!-- assignment / work log -->
+    {% if assignment %}
+    <div class="card card-clean mb-3">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-3"><i class="bi bi-person-badge text-primary"></i> การมอบหมายงาน</h6>
+        <div class="row g-3">
+          <div class="col-sm-6"><div class="text-muted small">ช่างผู้รับผิดชอบ</div>{{ assignment.technician.display_name }}</div>
+          <div class="col-sm-6"><div class="text-muted small">วันที่มอบหมาย</div>{{ assignment.assigned_date|date:"j M Y H:i" }} น.</div>
+          {% if assignment.work_detail %}
+          <div class="col-12"><div class="text-muted small">บันทึกการซ่อม</div><p class="mb-0" style="white-space:pre-line">{{ assignment.work_detail }}</p></div>
+          {% endif %}
+          {% if assignment.work_date %}
+          <div class="col-sm-6"><div class="text-muted small">วันที่ซ่อมเสร็จ</div>{{ assignment.work_date|date:"j M Y H:i" }} น.</div>
+          {% endif %}
+          {% if req.work_images %}
+          <div class="col-12">
+            <div class="text-muted small mb-2"><i class="bi bi-camera"></i> รูปงานที่ซ่อมเสร็จ ({{ req.work_images|length }})</div>
+            <div class="row g-2">
+              {% for img in req.work_images %}
+              <div class="col-6 col-md-4">
+                <a href="{{ img.image.url }}" target="_blank" rel="noopener" title="ดูรูปเต็ม">
+                  <img src="{{ img.image.url }}" class="img-fluid rounded border repair-thumb" alt="รูปงานเสร็จ #{{ req.pk }}">
+                </a>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ปุ่มเปิดห้องสนทนา (แท็บใหม่) #}
+    <div class="card card-clean mb-3">
+      <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h6 class="fw-bold mb-1"><i class="bi bi-chat-dots text-primary"></i> ห้องสนทนา &amp; ความคืบหน้า</h6>
+          <div class="text-muted small">พูดคุย ส่งรูป/ไฟล์ และติดตามงานร่วมกับทีมงาน</div>
+        </div>
+        <a href="{% url 'request_chat' req.pk %}" target="_blank" rel="noopener" class="btn btn-primary">
+          <i class="bi bi-chat-dots"></i> เปิดห้องสนทนา
+          {% if comments %}<span class="badge bg-light text-primary ms-1">{{ comments|length }}</span>{% endif %}
+          <i class="bi bi-box-arrow-up-right ms-1 small"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- rating display -->
+    {% if req.rating %}
+    <div class="card card-clean mb-3">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-2"><i class="bi bi-star-fill text-warning"></i> ผลการประเมิน</h6>
+        <div class="fs-4 text-warning">{{ req.rating.stars }}</div>
+        {% if req.rating.comment %}<p class="text-muted mb-0 mt-1">“{{ req.rating.comment }}”</p>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ================= RIGHT: timeline + actions ================= -->
+  <div class="col-lg-4">
+    <div class="card card-clean mb-3">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-3"><i class="bi bi-signpost-2 text-primary"></i> ความคืบหน้า</h6>
+        <ul class="timeline">
+          {% for s in req.workflow_steps %}
+          <li class="{{ s.state }}">
+            <div class="{% if s.state == 'current' %}fw-bold{% elif s.state == 'muted' %}text-muted{% endif %}">
+              <i class="bi {{ s.icon }}"></i> {{ s.label }}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% if req.status == 'returned' %}<div class="badge bg-danger">ถูกตีกลับ — รอผู้แจ้งแก้ไข</div>{% endif %}
+        {% if req.status == 'cancelled' %}<div class="badge bg-dark">ยกเลิกแล้ว</div>{% endif %}
+      </div>
+    </div>
+
+    {% include "requests/_actions.html" %}
+  </div>
+</div>
+{% endblock %}

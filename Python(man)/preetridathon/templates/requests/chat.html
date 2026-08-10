@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}ห้องสนทนา · ใบแจ้งซ่อม #{{ req.pk }}{% endblock %}
+{% block page_title %}ห้องสนทนา · RQ-{{ req.pk }}{% endblock %}
+{% block page_sub %}{{ req.title }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+  <a href="{% url 'request_detail' req.pk %}" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i></a>
+  <h4 class="fw-bold mb-0"><i class="bi bi-chat-dots text-primary"></i> ห้องสนทนา · RQ-{{ req.pk }}</h4>
+  <span class="pill pill-{{ req.status }} ms-1">{{ req.get_status_display }}</span>
+</div>
+<div class="text-muted mb-3 ms-1">{{ req.title }} · ผู้แจ้ง {{ req.reporter.display_name }}</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    {% include "requests/_comments.html" %}
+  </div>
+</div>
+
+{# กล่องดูรูปขนาดใหญ่ (lightbox) #}
+<div class="modal fade" id="lightbox" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-transparent border-0 shadow-none">
+      <div class="text-end mb-2">
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
+      </div>
+      <img id="lightbox-img" src="" alt="รูปภาพ" class="img-fluid rounded shadow-lg mx-auto d-block" style="max-height:82vh">
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+  var form = document.getElementById("chat-form");
+  if (!form) return;
+  var fileInput = document.getElementById("id_files");
+  var body = document.getElementById("id_body");
+  var chips = document.getElementById("file-chips");
+  var composer = document.getElementById("composer");
+  var IMG_RE = /\.(png|jpe?g|gif|webp|bmp)$/i;
+  var supportsDT = (typeof DataTransfer !== "undefined");
+  var dt = supportsDT ? new DataTransfer() : null;
+
+  function human(n) {
+    return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB"
+                        : Math.max(1, Math.round(n / 1024)) + " KB";
+  }
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ---- selected-file chips (ลบก่อนส่งได้) — ต้องมี DataTransfer ----
+  if (fileInput && chips && dt) {
+    function render() {
+      chips.innerHTML = "";
+      Array.prototype.forEach.call(dt.files, function (f, i) {
+        var chip = document.createElement("span");
+        chip.className = "file-chip";
+        var icon = IMG_RE.test(f.name) ? "bi-image" : "bi-paperclip";
+        chip.innerHTML =
+          '<i class="bi ' + icon + '"></i> ' + escapeHtml(f.name) +
+          ' <span class="text-muted small">' + human(f.size) + '</span>' +
+          ' <button type="button" class="chip-x" aria-label="ลบไฟล์">&times;</button>';
+        chip.querySelector(".chip-x").addEventListener("click", function () {
+          dt.items.remove(i);
+          fileInput.files = dt.files;
+          render();
+        });
+        chips.appendChild(chip);
+      });
+      chips.style.display = dt.files.length ? "flex" : "none";
+    }
+    function addFiles(list) {
+      Array.prototype.forEach.call(list, function (f) {
+        var dup = Array.prototype.some.call(dt.files, function (x) {
+          return x.name === f.name && x.size === f.size;
+        });
+        if (!dup) dt.items.add(f);
+      });
+      fileInput.files = dt.files;
+      render();
+    }
+    fileInput.addEventListener("change", function () {
+      addFiles(fileInput.files);
+    });
+    // drag & drop ลงบนกล่องพิมพ์
+    if (composer) {
+      ["dragenter", "dragover"].forEach(function (ev) {
+        composer.addEventListener(ev, function (e) {
+          e.preventDefault();
+          composer.classList.add("drag");
+        });
+      });
+      ["dragleave", "drop"].forEach(function (ev) {
+        composer.addEventListener(ev, function (e) {
+          e.preventDefault();
+          composer.classList.remove("drag");
+        });
+      });
+      composer.addEventListener("drop", function (e) {
+        if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+      });
+    }
+    // วางรูปจากคลิปบอร์ด (Ctrl+V ในกล่องพิมพ์)
+    if (body) {
+      body.addEventListener("paste", function (e) {
+        if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length) {
+          addFiles(e.clipboardData.files);
+        }
+      });
+    }
+  }
+
+  // ---- textarea: กด Enter ส่ง / Shift+Enter ขึ้นบรรทัด + auto-grow ----
+  if (body) {
+    function grow() {
+      body.style.height = "auto";
+      body.style.height = Math.min(body.scrollHeight, 160) + "px";
+    }
+    body.addEventListener("input", grow);
+    body.addEventListener("keydown", function (e) {
+      if (e.isComposing || e.keyCode === 229) return;   // กำลังพิมพ์ด้วย IME → อย่าเพิ่งส่ง
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        var hasText = body.value.trim().length > 0;
+        var hasFiles = fileInput && fileInput.files && fileInput.files.length > 0;
+        if (!hasText && !hasFiles) return;               // ว่างเปล่า → ไม่ส่ง (กันรีโหลดหน้า)
+        if (form.requestSubmit) form.requestSubmit(); else form.submit();
+      }
+    });
+    grow();
+  }
+
+  // ---- เลื่อนเธรดไปข้อความล่าสุด ----
+  var thread = document.querySelector(".comment-thread");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+
+  // ---- lightbox ดูรูปใหญ่ ----
+  var lbEl = document.getElementById("lightbox");
+  var lbImg = document.getElementById("lightbox-img");
+  if (lbEl && lbImg && window.bootstrap) {
+    var lb = new bootstrap.Modal(lbEl);
+    document.querySelectorAll(".comment-img-link").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        lbImg.src = a.getAttribute("href");
+        lb.show();
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}
