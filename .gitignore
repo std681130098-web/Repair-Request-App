@@ -27,3 +27,6 @@ cookies.txt
 server.log
 .coverage
 htmlcov/
+
+# ไฟล์สำรองโปรเจกต์ (มี db.sqlite3 อยู่ข้างใน)
+Backup.zip

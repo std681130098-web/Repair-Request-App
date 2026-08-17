@@ -31,36 +31,35 @@ class Command(BaseCommand):
             self.stdout.write("ล้างข้อมูลใบแจ้งซ่อมเดิมแล้ว")
 
         # --- superuser / admin ---
-        admin, created = User.objects.get_or_create(
+        admin, _ = User.objects.get_or_create(
             username="admin",
             defaults=dict(
                 first_name="แอดมิน ใจดี", role=User.Role.ADMIN,
                 is_staff=True, is_superuser=True, phone="02-111-1111",
             ),
         )
-        if created:
-            admin.set_password(PW); admin.save()
+        # ตั้งรหัสผ่านทุกครั้ง เพื่อให้ผู้ที่นำ Backup.zip ไปใช้เข้าระบบได้เสมอ
+        admin.is_staff = True; admin.is_superuser = True
+        admin.set_password(PW); admin.save()
 
         # --- technicians ---
         techs = []
         for uname, name in [("tech1", "สมชาย ช่างเก่ง"), ("tech2", "สมหญิง ช่างดี")]:
-            t, c = User.objects.get_or_create(
+            t, _ = User.objects.get_or_create(
                 username=uname,
                 defaults=dict(first_name=name, role=User.Role.TECHNICIAN, phone="08x-xxx-xxxx"),
             )
-            if c:
-                t.set_password(PW); t.save()
+            t.set_password(PW); t.save()
             techs.append(t)
 
         # --- reporters ---
         reporters = []
         for uname, name in [("user1", "นภา ผู้ใช้งาน"), ("user2", "ธนา พนักงาน")]:
-            u, c = User.objects.get_or_create(
+            u, _ = User.objects.get_or_create(
                 username=uname,
                 defaults=dict(first_name=name, role=User.Role.REPORTER, phone="08x-xxx-xxxx"),
             )
-            if c:
-                u.set_password(PW); u.save()
+            u.set_password(PW); u.save()
             reporters.append(u)
 
         # --- categories ---
